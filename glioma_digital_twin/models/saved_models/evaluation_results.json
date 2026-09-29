@@ -1,0 +1,494 @@
+{
+  "dataset_summary": {
+    "total_images": 253,
+    "class_0_no_tumor": 98,
+    "class_1_tumor_present": 155,
+    "train_set_size": 177,
+    "validation_set_size": 38,
+    "test_set_size": 38
+  },
+  "test_evaluation_metrics": {
+    "accuracy": 0.8947,
+    "accuracy_pct": 89.47,
+    "precision": 0.8519,
+    "precision_pct": 85.19,
+    "recall_sensitivity": 1.0,
+    "recall_sensitivity_pct": 100.0,
+    "specificity": 0.7333,
+    "specificity_pct": 73.33,
+    "f1_score": 0.92,
+    "f1_score_pct": 92.0,
+    "macro_f1": 0.8831,
+    "roc_auc": 0.9652,
+    "pr_auc": 0.9755,
+    "confusion_matrix": {
+      "true_negatives": 11,
+      "false_positives": 4,
+      "false_negatives": 0,
+      "true_positives": 23,
+      "total_test_samples": 38
+    },
+    "classification_report": {
+      "No Tumor (0)": {
+        "precision": 1.0,
+        "recall": 0.7333333333333333,
+        "f1-score": 0.8461538461538461,
+        "support": 15.0
+      },
+      "Tumor Present (1)": {
+        "precision": 0.8518518518518519,
+        "recall": 1.0,
+        "f1-score": 0.92,
+        "support": 23.0
+      },
+      "accuracy": 0.8947368421052632,
+      "macro avg": {
+        "precision": 0.9259259259259259,
+        "recall": 0.8666666666666667,
+        "f1-score": 0.8830769230769231,
+        "support": 38.0
+      },
+      "weighted avg": {
+        "precision": 0.9103313840155947,
+        "recall": 0.8947368421052632,
+        "f1-score": 0.8908502024291497,
+        "support": 38.0
+      }
+    }
+  },
+  "benchmark_comparison": {
+    "Deep_CNN_ResNet18": {
+      "model_type": "Deep Convolutional Neural Network (ResNet18)",
+      "test_accuracy": 0.8947,
+      "test_precision": 0.8519,
+      "test_recall": 1.0,
+      "test_specificity": 0.7333,
+      "test_f1": 0.8831,
+      "test_auc": 0.9652
+    },
+    "Random_Forest": {
+      "model_type": "Random Forest (100 Trees on 512D Embeddings)",
+      "test_accuracy": 0.8421,
+      "test_precision": 0.8148,
+      "test_recall": 0.9565,
+      "test_specificity": 0.6667,
+      "test_f1": 0.8246,
+      "test_auc": 0.9246
+    },
+    "Support_Vector_Machine": {
+      "model_type": "Support Vector Machine (RBF Kernel)",
+      "test_accuracy": 0.8947,
+      "test_precision": 0.88,
+      "test_recall": 0.9565,
+      "test_specificity": 0.8,
+      "test_f1": 0.8869,
+      "test_auc": 0.9449
+    }
+  },
+  "training_metadata": {
+    "epochs": 12,
+    "batch_size": 16,
+    "learning_rate": 0.0001,
+    "device": "cpu",
+    "training_duration_seconds": 210.74,
+    "history": {
+      "train_loss": [
+        0.6174,
+        0.3695,
+        0.258,
+        0.1957,
+        0.1056,
+        0.092,
+        0.122,
+        0.0599,
+        0.0669,
+        0.0606,
+        0.0419,
+        0.132
+      ],
+      "train_acc": [
+        0.5819,
+        0.8814,
+        0.9322,
+        0.9548,
+        0.9831,
+        0.9831,
+        0.9661,
+        0.9944,
+        0.9887,
+        0.9887,
+        0.9944,
+        0.9435
+      ],
+      "val_loss": [
+        0.392,
+        0.2985,
+        0.2561,
+        0.2057,
+        0.196,
+        0.1297,
+        0.1246,
+        0.2454,
+        0.1975,
+        0.1137,
+        0.1472,
+        0.2616
+      ],
+      "val_acc": [
+        0.8684,
+        0.8684,
+        0.8947,
+        0.9737,
+        0.9474,
+        0.9737,
+        0.9474,
+        0.8947,
+        0.8947,
+        0.9737,
+        0.9737,
+        0.9474
+      ],
+      "val_f1": [
+        0.8661,
+        0.8638,
+        0.8831,
+        0.9713,
+        0.9415,
+        0.9713,
+        0.9435,
+        0.8899,
+        0.8899,
+        0.9713,
+        0.9713,
+        0.9415
+      ],
+      "val_auc": [
+        0.9583,
+        0.9702,
+        0.9643,
+        0.9732,
+        0.9911,
+        0.997,
+        0.9911,
+        0.9851,
+        0.9881,
+        0.9851,
+        0.9821,
+        0.9702
+      ]
+    }
+  },
+  "artifact_paths": {
+    "model_checkpoint": "glioma_digital_twin/models/saved_models\\best_tumor_classifier.pt",
+    "training_curves_plot": "glioma_digital_twin/models/saved_models\\training_curves.png",
+    "confusion_matrix_plot": "glioma_digital_twin/models/saved_models\\confusion_matrix.png",
+    "roc_pr_curves_plot": "glioma_digital_twin/models/saved_models\\roc_pr_curves.png",
+    "gradcam_grid_plot": "glioma_digital_twin/models/saved_models\\test_predictions_gradcam.png"
+  },
+  "test_sample_predictions": [
+    {
+      "filename": "Y195.JPG",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9814,
+      "confidence": 0.9814,
+      "correct": true
+    },
+    {
+      "filename": "Y109.JPG",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9806,
+      "confidence": 0.9806,
+      "correct": true
+    },
+    {
+      "filename": "No22.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "No Tumor (0)",
+      "tumor_probability": 0.0212,
+      "confidence": 0.9788,
+      "correct": true
+    },
+    {
+      "filename": "4 no.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "No Tumor (0)",
+      "tumor_probability": 0.0244,
+      "confidence": 0.9756,
+      "correct": true
+    },
+    {
+      "filename": "N3.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "No Tumor (0)",
+      "tumor_probability": 0.0095,
+      "confidence": 0.9905,
+      "correct": true
+    },
+    {
+      "filename": "Y60.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9695,
+      "confidence": 0.9695,
+      "correct": true
+    },
+    {
+      "filename": "Y27.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.983,
+      "confidence": 0.983,
+      "correct": true
+    },
+    {
+      "filename": "Y101.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.867,
+      "confidence": 0.867,
+      "correct": true
+    },
+    {
+      "filename": "Y71.JPG",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9808,
+      "confidence": 0.9808,
+      "correct": true
+    },
+    {
+      "filename": "Y148.JPG",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9805,
+      "confidence": 0.9805,
+      "correct": true
+    },
+    {
+      "filename": "No11.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "No Tumor (0)",
+      "tumor_probability": 0.0082,
+      "confidence": 0.9918,
+      "correct": true
+    },
+    {
+      "filename": "N22.JPG",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9787,
+      "confidence": 0.9787,
+      "correct": false
+    },
+    {
+      "filename": "Y39.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9787,
+      "confidence": 0.9787,
+      "correct": true
+    },
+    {
+      "filename": "10 no.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "No Tumor (0)",
+      "tumor_probability": 0.0149,
+      "confidence": 0.9851,
+      "correct": true
+    },
+    {
+      "filename": "Y160.JPG",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9415,
+      "confidence": 0.9415,
+      "correct": true
+    },
+    {
+      "filename": "Y170.JPG",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9803,
+      "confidence": 0.9803,
+      "correct": true
+    },
+    {
+      "filename": "Y182.JPG",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9841,
+      "confidence": 0.9841,
+      "correct": true
+    },
+    {
+      "filename": "no 95.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "No Tumor (0)",
+      "tumor_probability": 0.0075,
+      "confidence": 0.9925,
+      "correct": true
+    },
+    {
+      "filename": "no 90.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "No Tumor (0)",
+      "tumor_probability": 0.0083,
+      "confidence": 0.9917,
+      "correct": true
+    },
+    {
+      "filename": "Y1.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.981,
+      "confidence": 0.981,
+      "correct": true
+    },
+    {
+      "filename": "Y74.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9786,
+      "confidence": 0.9786,
+      "correct": true
+    },
+    {
+      "filename": "31 no.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "No Tumor (0)",
+      "tumor_probability": 0.0397,
+      "confidence": 0.9603,
+      "correct": true
+    },
+    {
+      "filename": "Y61.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9789,
+      "confidence": 0.9789,
+      "correct": true
+    },
+    {
+      "filename": "Y157.JPG",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9837,
+      "confidence": 0.9837,
+      "correct": true
+    },
+    {
+      "filename": "Y50.JPG",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.8678,
+      "confidence": 0.8678,
+      "correct": true
+    },
+    {
+      "filename": "Y30.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9811,
+      "confidence": 0.9811,
+      "correct": true
+    },
+    {
+      "filename": "N26.JPG",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.7328,
+      "confidence": 0.7328,
+      "correct": false
+    },
+    {
+      "filename": "N15.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "No Tumor (0)",
+      "tumor_probability": 0.3965,
+      "confidence": 0.6035,
+      "correct": true
+    },
+    {
+      "filename": "Y11.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9813,
+      "confidence": 0.9813,
+      "correct": true
+    },
+    {
+      "filename": "Y95.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9687,
+      "confidence": 0.9687,
+      "correct": true
+    },
+    {
+      "filename": "Y35.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9718,
+      "confidence": 0.9718,
+      "correct": true
+    },
+    {
+      "filename": "Y32.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9431,
+      "confidence": 0.9431,
+      "correct": true
+    },
+    {
+      "filename": "Y164.JPG",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.9838,
+      "confidence": 0.9838,
+      "correct": true
+    },
+    {
+      "filename": "37 no.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "No Tumor (0)",
+      "tumor_probability": 0.0105,
+      "confidence": 0.9895,
+      "correct": true
+    },
+    {
+      "filename": "3 no.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.651,
+      "confidence": 0.651,
+      "correct": false
+    },
+    {
+      "filename": "no 100.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "No Tumor (0)",
+      "tumor_probability": 0.0084,
+      "confidence": 0.9916,
+      "correct": true
+    },
+    {
+      "filename": "no 6.jpg",
+      "ground_truth": "No Tumor (0)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.8484,
+      "confidence": 0.8484,
+      "correct": false
+    },
+    {
+      "filename": "Y252.jpg",
+      "ground_truth": "Tumor Present (1)",
+      "predicted_label": "Tumor Present (1)",
+      "tumor_probability": 0.5804,
+      "confidence": 0.5804,
+      "correct": true
+    }
+  ]
+}
