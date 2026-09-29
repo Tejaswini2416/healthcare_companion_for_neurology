@@ -32,7 +32,11 @@ from PIL import Image
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import seaborn as sns
+
+try:
+    import seaborn as sns
+except ImportError:
+    sns = None
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
@@ -566,12 +570,20 @@ def train_and_evaluate(
 
     # Plot 2: Confusion Matrix Heatmap
     plt.figure(figsize=(6, 5))
-    sns.heatmap(
-        cm, annot=True, fmt='d', cmap='Blues', cbar=False,
-        xticklabels=["No Tumor (0)", "Tumor Present (1)"],
-        yticklabels=["No Tumor (0)", "Tumor Present (1)"],
-        annot_kws={"size": 14, "weight": "bold"}
-    )
+    if sns is not None:
+        sns.heatmap(
+            cm, annot=True, fmt='d', cmap='Blues', cbar=False,
+            xticklabels=["No Tumor (0)", "Tumor Present (1)"],
+            yticklabels=["No Tumor (0)", "Tumor Present (1)"],
+            annot_kws={"size": 14, "weight": "bold"}
+        )
+    else:
+        plt.imshow(cm, cmap='Blues')
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                plt.text(j, i, str(cm[i, j]), ha='center', va='center', color='black', fontsize=14, weight='bold')
+        plt.xticks([0, 1], ["No Tumor (0)", "Tumor Present (1)"])
+        plt.yticks([0, 1], ["No Tumor (0)", "Tumor Present (1)"])
     plt.title(f"Test Set Confusion Matrix (Accuracy: {test_acc*100:.1f}%)", fontsize=12, fontweight='bold', pad=12)
     plt.xlabel("Predicted Diagnosis", fontsize=11, fontweight='bold')
     plt.ylabel("Ground Truth Diagnosis", fontsize=11, fontweight='bold')
