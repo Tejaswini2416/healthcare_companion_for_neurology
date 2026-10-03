@@ -1,0 +1,19 @@
+EMERGENCY NEURORADIOLOGY CONSULTATION REPORT
+PATIENT: Emergency Triage / Acute Deterioration
+MRN: 0042
+DATE OF EXAMINATION: 2026-09-30
+CLINICAL INDICATION: Acute neurological deterioration; refractory headaches, progressive lethargy, confusion, and new right upper extremity pronator drift following Cycle 3 temozolomide. Emergent evaluation for mass effect.
+
+TECHNIQUE: Emergency high-resolution non-contrast and contrast-enhanced 3D volumetric Brain MRI.
+
+FINDINGS:
+MASS EFFECT & HERNIATION:
+There is rapid expansion of extensive finger-like vasogenic edema involving the deep temporal and fronto-insular white matter, measuring 24.50 cm3. Severe mass effect is observed with marked compression and near-total effacement of the left lateral ventricle frontal and temporal horns. Subfalcine herniation is present with 5.8 mm rightward midline shift across the falx cerebri. Early effacement of the perimesencephalic cisterns noted.
+
+LESION CHARACTERISTICS & PERFUSION:
+Irregular peripheral rim enhancement measuring 4.2 x 3.6 cm. Central non-enhancing necrotic cavity. Perfusion rCBV is elevated at 2.95 at the anterior leading edge.
+
+IMPRESSION:
+1. CRITICAL ALERT: Severe intracranial mass effect with 5.8 mm subfalcine herniation and impending uncal herniation.
+2. Extensive aggressive vasogenic edema with elevated perfusion (rCBV 2.95).
+3. URGENT ACTION: Immediate neurosurgical consultation requested for evaluation of emergent surgical decompression. Initiate intravenous dexamethasone (10 mg IV bolus followed by 4 mg q6h) and hyperosmolar therapy with 23.4% hypertonic saline or mannitol as clinically indicated.

@@ -8,14 +8,19 @@ and empathetic patient communication.
 import re
 from typing import Dict, Any, List, Optional
 from ..utils.supabase_client import get_database_client
+from .graph_rag import GraphRAGClinicalGuard
+from .red_flag_alert import get_escalation_engine
 
 
 class CareCompanionAgent:
     """
     Care Companion that generates empathetic, clinically safe responses
-    strictly grounded in the patient's individual digital twin data.
+    strictly grounded in the patient's individual digital twin data
+    and validated against NCCN Category 1 Clinical Guidelines via GraphRAG.
     """
     def __init__(self):
+        self.rag_guard = GraphRAGClinicalGuard()
+        self.escalation_engine = get_escalation_engine()
         self.red_flag_keywords = [
             "passed out", "unconscious", "repeated seizures", "cannot move arm",
             "cannot speak", "paralyzed", "worst headache of my life", "vomiting blood",
@@ -29,12 +34,13 @@ class CareCompanionAgent:
         conversation_history: Optional[List[Dict[str, str]]] = None
     ) -> Dict[str, Any]:
         """
-        Generates grounded response.
+        Generates grounded response verified against NCCN Guidelines and Patient Digital Twin.
         Returns:
             - response_text: empathetic response grounded in patient data
             - cross_modal_insight: flagged cross-modal correlation if any
             - red_flag_detected: boolean
             - care_team_prompt: suggested follow-up with doctor/nurse
+            - graph_rag: clinical verification metadata (citations, score, retrieved nodes)
         """
         db = get_database_client()
         patient = db.get_patient_by_id(patient_id) or db.get_patient_by_mrn("0042") or {}
@@ -50,9 +56,25 @@ class CareCompanionAgent:
 
         msg_lower = user_message.lower()
 
+        # Run GraphRAG Clinical Guard against NCCN Guidelines & Pharmacological Knowledge Base
+        patient_context = {
+            "molecular": patient.get("molecular_markers", {}),
+            "patient": patient,
+            "meds": meds,
+            "latest_scan": latest_scan
+        }
+        rag_res = self.rag_guard.generate_grounded_response(user_message, patient_context)
+
         # 1. Safety Guardrail: Immediate Red-Flag Triage
         is_red_flag = any(kw in msg_lower for kw in self.red_flag_keywords)
         if is_red_flag:
+            # Trigger automated clinical escalation
+            self.escalation_engine.evaluate_symptom_event(
+                symptom_type="Acute Red-Flag (Chat)",
+                severity="Severe",
+                notes=user_message,
+                patient_data=patient
+            )
             red_flag_response = (
                 "🚨 **URGENT MEDICAL NOTICE**: What you are describing sounds like a potential acute symptom "
                 "that requires immediate medical attention. Please do not wait. **Contact your emergency department (call 911) "
@@ -64,9 +86,10 @@ class CareCompanionAgent:
             )
             return {
                 "response_text": red_flag_response,
-                "cross_modal_insight": "Critical red-flag symptom reported by patient.",
+                "cross_modal_insight": "Critical red-flag symptom reported by patient. Emergency escalation dispatched.",
                 "red_flag_detected": True,
                 "care_team_prompt": "Emergency evaluation or immediate call to care navigator.",
+                "graph_rag": rag_res
             }
 
         # 2. Cross-Modal Reasoning: Missed Medication & Seizure / Aura Correlation
@@ -103,6 +126,7 @@ class CareCompanionAgent:
                 "cross_modal_insight": "Correlated missed Levetiracetam dose with newly reported focal seizure aura.",
                 "red_flag_detected": False,
                 "care_team_prompt": f"Contact {patient.get('nurse_name', 'Sarah Jensen, RN')} to discuss safe Keppra catch-up dosing.",
+                "graph_rag": rag_res
             }
 
         # 3. Medical Terminology Clarification: Perilesional Edema
@@ -123,6 +147,7 @@ class CareCompanionAgent:
                 "cross_modal_insight": f"Grounded in latest scan edema volume ({edema_vol:.2f} cm³).",
                 "red_flag_detected": False,
                 "care_team_prompt": "Monitor for morning headaches or focal weakness.",
+                "graph_rag": rag_res
             }
 
         # 4. Scan Explanation & Pseudoprogression (PsP)
@@ -144,6 +169,7 @@ class CareCompanionAgent:
                 "cross_modal_insight": f"Grounded in 3D SegResNet volumetric data (ET: {et_vol:.2f} cm³, rCBV: {rcbv:.2f}).",
                 "red_flag_detected": False,
                 "care_team_prompt": "Continue current adjuvant cycle; routine follow-up in 8 weeks.",
+                "graph_rag": rag_res
             }
 
         # 5. Care Team Coordination
@@ -162,9 +188,25 @@ class CareCompanionAgent:
                 "cross_modal_insight": "Surfaced primary clinical care team contacts and upcoming visit.",
                 "red_flag_detected": False,
                 "care_team_prompt": "Direct messaging available to Nurse Sarah Jensen.",
+                "graph_rag": rag_res
             }
 
-        # 6. General Empathetic Health Assistant Response
+        # 6. GraphRAG Grounded Response (if specific clinical concepts matched)
+        if rag_res.get("retrieved_nodes_count", 0) > 0 and rag_res.get("grounded_text"):
+            grounded_response = (
+                f"**Clinical Knowledge Verification**:\n\n"
+                f"{rag_res['grounded_text']}\n\n"
+                "*(Information verified against NCCN Guidelines and patient digital twin record. Always confirm with your attending neuro-oncologist.)*"
+            )
+            return {
+                "response_text": grounded_response,
+                "cross_modal_insight": f"GraphRAG Grounding: Retrieved {rag_res['retrieved_nodes_count']} validated clinical knowledge nodes ({', '.join(rag_res['retrieved_nodes'])}).",
+                "red_flag_detected": False,
+                "care_team_prompt": "Review with your care team during your next consultation.",
+                "graph_rag": rag_res
+            }
+
+        # 7. General Empathetic Health Assistant Response
         general_response = (
             f"Hello Thanuja, I am here as your dedicated Care Companion. I have full access to your personalized digital health twin, "
             f"including your latest brain MRI scans ({latest_scan.get('scan_date', 'September 18')}), your medication schedule, and your symptom history.\n\n"
@@ -180,4 +222,5 @@ class CareCompanionAgent:
             "cross_modal_insight": "Twin state synchronized.",
             "red_flag_detected": False,
             "care_team_prompt": "Ask any question about your care plan.",
+            "graph_rag": rag_res
         }

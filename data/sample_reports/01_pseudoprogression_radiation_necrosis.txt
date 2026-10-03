@@ -1,0 +1,25 @@
+CLINICAL RADIOLOGY & MULTI-PARAMETRIC MRI REPORT
+PATIENT: V. Thanuja
+MRN: 0042
+DATE OF EXAMINATION: 2026-09-28
+CLINICAL INDICATION: 24-year-old female with IDH-mutant Grade 4 astrocytoma of the left temporal lobe, post-surgical resection, undergoing adjuvant Stupp protocol temozolomide chemoradiation. Surveillance MRI evaluation.
+
+TECHNIQUE: Multi-planar, multi-sequence brain MRI performed with and without intravenous gadolinium contrast (0.1 mmol/kg Gadavist). Sequences include axial T1-weighted, T2-weighted, 3D FLAIR, dynamic susceptibility contrast (DSC) perfusion, and axial/coronal/sagittal T1 post-contrast.
+
+FINDINGS:
+BRAIN PARENCHYMA & RESECTION CAVITY:
+Stable surgical resection cavity in the left temporal lobe. Along the posterior margin of the cavity, there is an enhancing residual lesion measuring 1.3 x 1.7 cm, demonstrating an estimated enhancing tumor volume of 3.85 cm3. In comparison to the examination from 2026-07-28, there is interval reduction in enhancing volume and margin definition.
+
+PERITUMORAL VASOGENIC EDEMA & MASS EFFECT:
+Surrounding FLAIR hyperintensity in the peritumoral white matter is stable at 6.30 cm3, representing mild localized edema. There is no significant mass effect. No effacement of the temporal horn of the left lateral ventricle. Midline structures are entirely symmetric with 0.0 mm midline shift.
+
+DSC PERFUSION MRI:
+Dynamic susceptibility contrast perfusion demonstrates low relative cerebral blood volume within the enhancing rim, with mean rCBV measured at 1.45 (relative to normal contralateral white matter). No areas of markedly elevated microvascular perfusion or neoangiogenesis.
+
+DIFFUSION-WEIGHTED IMAGING (DWI):
+No restricted diffusion to suggest acute ischemia or hypercellular tumor nidus.
+
+IMPRESSION:
+1. Interval decrease in enhancing residual volume along the left temporal resection cavity margin with stable surrounding FLAIR edema.
+2. Low perfusion rCBV (1.45) in conjunction with recent completion of radiation therapy and MGMT methylated promoter status is strongly indicative of treatment-induced pseudoprogression / radiation necrosis (RANO PsP probability >85%) rather than true tumor recurrence.
+3. Stable clinical trajectory without mass effect or midline shift. Continue current adjuvant temozolomide therapy.

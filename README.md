@@ -147,11 +147,13 @@ The schema is defined in [`database/supabase_schema.sql`](file:///c:/Users/Tejas
 
 ## 🖥️ User Roles & Workflows
 
-### 🩺 Clinician Workstation
-- **Multi-Patient Roster**: High-level cohort overview with MRN, age, tumor location, WHO grade, KPS score, and triage alert badges.
-- **Scan & Report Ingestion Suite**: 4-channel MRI dropzone (`.nii` / `.nii.gz`) and clinical note ingestion interface executing the complete pipeline.
-- **Medication Management & Verification**: Prescribe new medications (drug, dose, frequency, instructions) and override/audit adherence status (`Taken`, `Due`, `Missed`).
-- **Clinical Report Generator & Print Console**: Generates formatted consultation summaries with volumetric delta metrics, RANO evaluations, and print-ready CSS (`window.print()`).
+### 🩺 Clinician Workstation & Doctor Portal
+- **Doctor Authentication & RBAC Login**: Institutional smart-card SSO simulation and credential authentication for attending neuro-oncologists (Dr. Aris Thorne, Dr. Elena Rostova, Dr. Marcus Vance) with direct assigned patient inspection.
+- **Multi-Patient Roster & Inspector**: High-level cohort overview with MRN, age, tumor location, WHO grade, KPS score, molecular biomarkers, and live triage alert badges.
+- **Clinical Report Upload & AI Verification Hub**: Ingestion suite supporting drag-and-drop (.txt, .md, .pdf) or 1-click loading from the clinical sample reports library. Executes Bio_ClinicalBERT entity parsing, rCBV thresholding, RANO 2.0 triage classification, 6th-grade empathetic translation, and formal physician electronic sign-off.
+- **3D & 2D MRI Diagnostic Suite**: 4-channel BraTS structural sequence dropzone (`.nii` / `.nii.gz`) for MONAI SegResNet volumetric segmentation, plus real-time 2D MRI ResNet-18 inference with Grad-CAM overlays.
+- **Medication Governance & Verification Hub**: Prescribe new medications (drug, dose, frequency, instructions) and override/audit adherence status (`Taken`, `Due`, `Missed`) with clinical notes.
+- **Consultation Report Generator & Print Console**: Generates formatted consultation summaries with volumetric delta metrics, RANO evaluations, and print-ready CSS (`window.print()`).
 - **In-Silico Horizon Simulator**: Interactive "what-if" testing of alternative chemotherapy regimens (SOC vs. Dose-Dense vs. Hold vs. Lomustine) with 30–180 day forecast plots.
 
 ### 👤 Patient Portal
@@ -175,6 +177,12 @@ digital_twin/
 ├── database/
 │   └── supabase_schema.sql           # Complete Supabase PostgreSQL DDL with RLS & pre-seeds
 ├── data/
+│   ├── sample_reports/               # Standardized clinical consultation & radiology report library
+│   │   ├── 01_pseudoprogression_radiation_necrosis.txt # Sample 1: PsP / radiation necrosis (MRN: 0042)
+│   │   ├── 02_recurrent_high_grade_progression.txt     # Sample 2: True tumor recurrence (MRN: 0043)
+│   │   ├── 03_complete_treatment_response.txt          # Sample 3: Complete durable response (MRN: 0044)
+│   │   ├── 04_acute_mass_effect_herniation.txt         # Sample 4: Acute herniation emergency (STAT)
+│   │   └── README.md                                   # Clinical parameters & test guide
 │   └── sample_scans/                 # Clinical MRI scan dataset for 2D tumor classifier
 │       ├── yes/                      # Tumor-positive scans
 │       └── no/                       # Tumor-negative scans
@@ -198,7 +206,9 @@ digital_twin/
 │   ├── ui/
 │   │   ├── app.py                    # Main Streamlit web application entry point
 │   │   └── components/
-│   │       ├── clinician_upload.py    # Clinician Workstation (Roster, Ingestion, Meds, Report, Simulator)
+│   │       ├── doctor_login.py        # Doctor Authentication & Patient Cohort Inspector
+│   │       ├── clinician_upload.py    # Clinician Workstation (Roster, 3D/2D Scans, Meds, Report, Simulator)
+│   │       ├── report_verification_hub.py # Clinical Report Upload & AI Verification Hub
 │   │       ├── patient_dashboard.py   # Patient Portal Home Dashboard & Stat Cards
 │   │       ├── report_viewer.py       # Scan details, technical vs. plain translation, patient upload
 │   │       ├── symptom_logger.py      # One-tap symptom entry form & timeline
@@ -259,6 +269,104 @@ python run_demo.py --no-launch
 ```bash
 python glioma_digital_twin/models/train_tumor_model.py
 ```
+
+---
+
+## 🚀 Advanced Clinical AI Capabilities (Phase 1: High Clinical Value)
+
+The platform incorporates four enterprise-grade clinical AI capabilities designed to meet hospital standards and enhance patient safety:
+
+### 1. 🌐 Interactive 3D WebGL Volume Viewer (`volume_viewer_3d.py`)
+- **Three.js GPU-Accelerated Rendering**: Renders full 3D volumetric models of the brain cortex silhouette, Enhancing Tumor (ET), Peritumoral Edema (ED), and Necrotic Core (NCR).
+- **Clinical Controls**: 360° orbital rotation, pan, zoom, sub-region opacity sliders, cinematic auto-rotation, and axial cutaway clipping planes.
+- **Embedded Across**: Both the Clinician Workstation (Tab 3: Diagnostic Suite) and Patient Report Viewer.
+
+### 2. 🛡️ GraphRAG Clinical Safety Guard & Knowledge Graph (`graph_rag.py`)
+- **Evidence Grounding**: Multi-hop traversal over NCCN Guidelines for Central Nervous System Cancers (v2026.1), AAN Standards, and RANO 2.0 response criteria.
+- **Pharmacological Safety Limits**: Hardcoded threshold checks for Stupp protocol adjuvant Temozolomide (ANC $\ge 1,500/\mu\text{L}$, Platelets $\ge 100,000/\mu\text{L}$), antiepileptic non-cessation warnings (Levetiracetam/Keppra), and Dexamethasone tapering rules.
+- **Anti-Hallucination Fact Verification**: Dynamically outputs verification confidence scores ($>90\%$) and expandable citation drawers for patient chat and clinician consultation.
+
+### 3. 🚨 Automated Red-Flag Escalation Protocol (`red_flag_alert.py`)
+- **Three-Tier Clinical Triage**:
+  - **Level 3 (STAT Emergency)**: Acute expressive aphasia, hemiparesis/paralysis, convulsive/status seizures, and acute ICP herniation signs.
+  - **Level 2 (Urgent Care Escalation)**: Sensory seizure auras, visual field deficits, and severe unremitting headaches (callback within 4 hours).
+  - **Level 1 (Routine)**: Mild fatigue or localized manageable symptoms.
+- **SBAR Structured Handoff**: Auto-generates Situation, Background, Assessment, and Recommendation reports.
+- **Multi-Channel Dispatch Simulation**: Dispatches alerts via simulated SMS Gateway (`+1 (555) 019-8492`) and Hospital PagerDuty Webhooks (`HTTP 200 Broadcasted`, Priority `P1_STAT` / `P2_HIGH`).
+- **Attending Workstation Queue**: Dedicated interactive resolution queue in the Clinician Workstation where oncologists review telemetry and record formal clinical triage notes.
+
+### 4. 🌍 Multi-Language Empathetic Translation & Audio TTS Player (`clinical_nlp.py`, `audio_tts_player.py`)
+- **Multilingual Support**: Real-time 6th-grade reading level translation into **Spanish (Español)**, **Hindi (हिंदी)**, **Mandarin (中文)**, **French (Français)**, and **English**.
+### 5. 👨‍⚕️ Attending Physician Authentication & Privacy Protection Gate (`doctor_login.py`)
+- **Strict Clinical Entry Gate**: To comply with HIPAA/HITECH privacy guidelines, the application boots directly to the **Doctor Authentication Portal**. All Protected Health Information (PHI), patient names, Medical Record Numbers (MRNs), diagnostic locations, and MRI scans remain locked and undisclosed until an attending physician signs in.
+- **1-Click Express Physician Authentication**: Instant smart-card simulation for active attending specialists:
+  - **Dr. Aris Thorne, MD, PhD** (*Chief of Neuro-Oncology*) - Assigned patients: V. Thanuja (0042), Priya Sharma (0044).
+  - **Dr. Elena Rostova, MD** (*Associate Professor of Surgical Neuro-Oncology*) - Assigned patient: Marcus Chen (0043).
+  - **Dr. Marcus Vance, MD** (*Chief of Diagnostic Neuroradiology*) - Cross-cohort coverage.
+- **Standard Institutional NPI Login**: Full credential authentication form supporting department routing and session persistence.
+- **Assigned Cohort Inspector**: Upon login, the attending physician gains access to their assigned patient roster, active patient context switcher, and comprehensive tabs for Demographics, Molecular & Genomic Biomarkers, 3D MRI Volumetrics, Medications, and Symptom Dynamics.
+- **Secure Sign-Out**: One-click physician logout returns the application immediately to the locked authentication gate.
+
+---
+
+## ⚡ Supabase PostgreSQL Direct Real-Time Connectivity
+
+Healthcare Companion connects directly to **Supabase PostgreSQL** for real-time symptom streaming, longitudinal MRI scan tracking, and bidirectional clinical alerts between patients and oncologist workstations.
+
+```
+┌────────────────────────────────────────────────────────┐
+│ STREAMLIT UI: PATIENT & CLINICIAN WORKSTATIONS        │
+│ • Doctor RBAC entry gate & cohort privacy             │
+│ • Real-time symptom streaming (@st.fragment 5s)        │
+│ • Interactive MPR 3D slice segmentations               │
+│ • Real-time in-basket doctor escalations               │
+└──────────────────────────┬─────────────────────────────┘
+                           │ Direct PostgREST / Realtime
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│ SUPABASE POSTGRESQL CLOUD ENGINE (public schema)       │
+│ • public.patients           • public.mri_scans         │
+│ • public.symptom_logs       • public.clinical_reports  │
+│ • public.medications        • public.twin_timeline     │
+│ • public.molecular_profiles • public.counterfactual... │
+└──────────────────────────┬─────────────────────────────┘
+                           │ Graceful offline fallback
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│ LOCAL RESILIENT ENGINE (Zero-friction demo mode)       │
+│ • Pre-seeded cohorts: MRN 0042, 0043, 0044             │
+└────────────────────────────────────────────────────────┘
+```
+
+### 1. Connecting to Live Supabase
+You can supply your Supabase project credentials in **either of two ways**:
+1. **Environment File** (`.env`):
+   ```env
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_KEY=your-anon-or-service-role-key
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-or-service-role-key
+   ```
+2. **Streamlit Secrets** (`.streamlit/secrets.toml`):
+   ```toml
+   SUPABASE_URL = "https://your-project.supabase.co"
+   SUPABASE_KEY = "your-anon-or-service-role-key"
+
+   [supabase]
+   url = "https://your-project.supabase.co"
+   key = "your-anon-or-service-role-key"
+   ```
+
+### 2. Creating Database Tables & Schema
+To populate a fresh Supabase database with all patient profiles (V. Thanuja, Marcus Chen, Priya Sharma), historical MRI volumetrics, medications, and clinical reports:
+- Open your Supabase project dashboard -> **SQL Editor**.
+- Copy and run the complete idempotent DDL script from `database/supabase_schema.sql`.
+- Once tables are created, all scan evaluations, symptom logs, and clinical reports sync automatically with your remote PostgreSQL instance.
+
+### 3. Real-Time Streaming & Resilience
+- **Automated Fallback**: If Supabase cloud is temporarily unreachable or tables are initializing, the client seamlessly routes queries through the high-speed local resilient cohort cache without application disruption.
+- **Instant Scan Sync**: Evaluated MRI scans and biophysical volumetrics ($WT$, $TC$, $ET$, $rCBV$) are written directly into `public.mri_scans`.
+- **Live Symptom Feed**: Real-time multi-device symptom streaming with zero-lag patient transmission.
 
 ---
 

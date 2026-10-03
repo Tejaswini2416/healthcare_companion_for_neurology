@@ -1,0 +1,25 @@
+CLINICAL RADIOLOGY & MULTI-PARAMETRIC MRI REPORT
+PATIENT: Marcus Chen
+MRN: 0043
+DATE OF EXAMINATION: 2026-09-29
+CLINICAL INDICATION: 58-year-old male with glioblastoma (IDH-wildtype, MGMT-unmethylated, WHO Grade 4) of the right frontal lobe, status post gross total resection and adjuvant chemoradiation. New onset worsening left-sided pronator drift and cognitive slowing.
+
+TECHNIQUE: 3D Multi-parametric brain MRI with DSC perfusion and diffusion tensor imaging before and after 15 mL Dotarem IV contrast.
+
+FINDINGS:
+BRAIN PARENCHYMA & RESECTION CAVITY:
+Evaluation of the right frontal lobe resection bed demonstrates marked interval progression. A thick, irregular, nodular rim of intense contrast enhancement now surrounds the lateral and deep aspects of the surgical cavity, measuring 3.4 x 2.8 cm, with estimated enhancing tumor volume increased to 18.40 cm3 (previously 10.90 cm3).
+
+PERITUMORAL EDEMA & MASS EFFECT:
+There is extensive expanding perilesional vasogenic edema throughout the right frontal white matter and corona radiata, now measuring 19.80 cm3. Moderate mass effect is noted with partial effacement of the right lateral ventricle frontal horn and 3.5 mm leftward midline shift.
+
+DSC PERFUSION ANALYSIS:
+Dynamic susceptibility contrast-derived perfusion demonstrates intense hypervascularity and microvascular proliferation within the nodular enhancing regions, with peak rCBV measuring 3.65 (reference range <1.75).
+
+DIFFUSION-WEIGHTED IMAGING:
+Focal areas of restricted diffusion (ADC values < 750 x 10^-6 mm2/s) within the enhancing nodularity consistent with high cellular density.
+
+IMPRESSION:
+1. Unequivocal true neoplastic tumor recurrence and progressive disease (RANO 2.0 Category: Progressive Disease / PD) within the right frontal lobe resection margin.
+2. Marked elevation of relative cerebral blood volume (rCBV 3.65) and restricted diffusion confirm aggressive active tumor neoangiogenesis.
+3. Moderate mass effect with 3.5 mm midline shift. Urgent neuro-oncology tumor board review recommended for consideration of second-line systemic therapy (e.g. Lomustine/Bevacizumab) or repeat surgical debulking.

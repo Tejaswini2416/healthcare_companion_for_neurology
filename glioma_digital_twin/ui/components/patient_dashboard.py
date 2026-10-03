@@ -87,17 +87,18 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
     c1, c2, c3, c4 = st.columns(4)
 
     with c1:
-        wt_vol = latest_scan.get("wt_vol_cm3", 14.60)
-        prior_wt = prior_scan.get("wt_vol_cm3", wt_vol)
+        wt_vol = float(latest_scan.get("wt_vol_cm3", 14.60))
+        prior_wt = float(prior_scan.get("wt_vol_cm3", wt_vol))
         delta_v = wt_vol - prior_wt
         delta_str = f"▼ {abs(delta_v):.1f} cm³" if delta_v < 0 else (f"▲ +{delta_v:.1f} cm³" if delta_v > 0 else "Stable")
         delta_col = "#059669" if delta_v <= 0 else "#dc2626"
+        scan_sub = f"{delta_str} • {len(scans)} scans"
         st.markdown(
             f"""
             <div style="background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <span style="font-size: 0.8rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Tumor Volume</span>
                 <h3 style="margin: 6px 0; font-size: 1.7rem; color: #0f766e; font-weight: 700;">{wt_vol:.1f} <span style="font-size: 1rem; font-weight: normal; color: #6b7280;">cm³</span></h3>
-                <span style="color: {delta_col}; font-size: 0.85rem; font-weight: 600;">{delta_str}</span>
+                <span style="color: {delta_col}; font-size: 0.85rem; font-weight: 600;">{scan_sub}</span>
             </div>
             """,
             unsafe_allow_html=True
@@ -117,16 +118,18 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
         )
 
     with c3:
+        sync_tag = "🟢 Live Supabase Sync" if db.is_connected_to_supabase else "🟡 Local Twin Memory"
         st.markdown(
             f"""
             <div style="background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <span style="font-size: 0.8rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Symptoms Logged</span>
                 <h3 style="margin: 6px 0; font-size: 1.7rem; color: #0f766e; font-weight: 700;">{len(symptoms)}</h3>
-                <span style="color: #059669; font-size: 0.85rem;">Active Digital Twin Tracking</span>
+                <span style="color: #059669; font-size: 0.82rem;">{sync_tag}</span>
             </div>
             """,
             unsafe_allow_html=True
         )
+
 
     with c4:
         st.markdown(

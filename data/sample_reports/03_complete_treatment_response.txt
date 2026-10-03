@@ -1,0 +1,22 @@
+CLINICAL RADIOLOGY & MULTI-PARAMETRIC MRI REPORT
+PATIENT: Priya Sharma
+MRN: 0044
+DATE OF EXAMINATION: 2026-09-27
+CLINICAL INDICATION: 41-year-old female with anaplastic oligodendroglioma (IDH-mutant, 1p/19q codeleted, WHO Grade 3) of the right parietal lobe. Completed 6 cycles of PCV chemotherapy. 6-month routine surveillance examination.
+
+TECHNIQUE: Multi-sequence 3T brain MRI including 3D T1 MPRAGE, axial T2 fast spin echo, 3D FLAIR, DSC perfusion, and post-contrast volumetric 3D T1-weighted imaging.
+
+FINDINGS:
+BRAIN PARENCHYMA & TUMOR BED:
+The previously demonstrated T2/FLAIR hyperintense lesion within the right parietal subcortical white matter demonstrates continued involution and marked decrease in extent. There is minimal residual non-enhancing FLAIR signal abnormality measuring approximately 3.20 cm3, compatible with chronic gliosis and post-treatment parenchymal remodeling.
+
+CONTRAST ENHANCEMENT:
+Following intravenous gadolinium administration, there is NO pathological nodular or rim contrast enhancement identified anywhere within the brain parenchyma. The surgical cavity and surrounding cortical architecture appear calm.
+
+PERFUSION rCBV & MASS EFFECT:
+Perfusion imaging reveals normalized blood flow through the region with an rCBV of 1.10. Ventricular size and sulcal prominence are symmetrical and appropriate for age. No mass effect, no midline shift (0.0 mm).
+
+IMPRESSION:
+1. Durable radiographic complete treatment response (RANO 2.0 Category: Complete Response / CR) with no evidence of tumor recurrence or residual high-grade disease.
+2. Complete absence of abnormal enhancement and normalized microvascular perfusion (rCBV 1.10).
+3. Recommend continued routine clinical surveillance with follow-up neuro-imaging in 6 months.

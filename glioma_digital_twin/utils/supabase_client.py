@@ -20,26 +20,123 @@ except ImportError:
     SUPABASE_SDK_AVAILABLE = False
 
 
+def discover_supabase_credentials() -> tuple[Optional[str], Optional[str]]:
+    """
+    Intelligently discovers Supabase credentials from Streamlit session state,
+    Streamlit secrets.toml, environment variables, or .env file.
+    Filters out dummy placeholder values.
+    """
+    url: Optional[str] = None
+    key: Optional[str] = None
+
+    def _is_placeholder(val: Optional[str]) -> bool:
+        if not val:
+            return True
+        v = str(val).strip().lower()
+        return (
+            len(v) == 0
+            or "your-project" in v
+            or "xyzcompany" in v
+            or "dummy" in v
+            or "your-anon" in v
+            or "example.com" in v
+        )
+
+    # 1. Streamlit Session State (Runtime user config via UI)
+    try:
+        import streamlit as st
+        if hasattr(st, "session_state"):
+            if "custom_supabase_url" in st.session_state and st.session_state["custom_supabase_url"]:
+                candidate = str(st.session_state["custom_supabase_url"]).strip()
+                if not _is_placeholder(candidate):
+                    url = candidate
+            if "custom_supabase_key" in st.session_state and st.session_state["custom_supabase_key"]:
+                candidate = str(st.session_state["custom_supabase_key"]).strip()
+                if not _is_placeholder(candidate):
+                    key = candidate
+    except Exception:
+        pass
+
+    # 2. Streamlit Secrets (.streamlit/secrets.toml)
+    if not url or not key:
+        try:
+            import streamlit as st
+            if hasattr(st, "secrets"):
+                if not url:
+                    if "SUPABASE_URL" in st.secrets:
+                        candidate = str(st.secrets["SUPABASE_URL"]).strip()
+                        if not _is_placeholder(candidate):
+                            url = candidate
+                    elif "supabase" in st.secrets and "url" in st.secrets["supabase"]:
+                        candidate = str(st.secrets["supabase"]["url"]).strip()
+                        if not _is_placeholder(candidate):
+                            url = candidate
+                if not key:
+                    if "SUPABASE_KEY" in st.secrets:
+                        candidate = str(st.secrets["SUPABASE_KEY"]).strip()
+                        if not _is_placeholder(candidate):
+                            key = candidate
+                    elif "supabase" in st.secrets and "key" in st.secrets["supabase"]:
+                        candidate = str(st.secrets["supabase"]["key"]).strip()
+                        if not _is_placeholder(candidate):
+                            key = candidate
+        except Exception:
+            pass
+
+    # 3. Process Environment Variables
+    if not url:
+        candidate = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+        if candidate and not _is_placeholder(candidate):
+            url = candidate.strip()
+    if not key:
+        candidate = os.getenv("SUPABASE_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+        if candidate and not _is_placeholder(candidate):
+            key = candidate.strip()
+
+    # 4. Fallback: Parse .env file if still missing or placeholder
+    env_candidate_paths = [
+        ".env",
+        os.path.join(os.getcwd(), ".env"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"),
+    ]
+    for env_path in env_candidate_paths:
+        if (not url or not key) and os.path.exists(env_path):
+            try:
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("#") or "=" not in line:
+                            continue
+                        k, v = line.split("=", 1)
+                        k, v = k.strip(), v.strip().strip('"').strip("'")
+                        if k in ("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL") and not url and not _is_placeholder(v):
+                            url = v
+                        elif k in ("SUPABASE_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY") and not key and not _is_placeholder(v):
+                            key = v
+            except Exception:
+                pass
+
+    return url, key
+
+
 class DatabaseClient:
     """
-    Unified database interface supporting real Supabase and resilient local memory storage.
+    Unified database interface supporting direct live Supabase PostgreSQL
+    and resilient local memory storage.
     """
     def __init__(self, url: Optional[str] = None, key: Optional[str] = None):
-        self.url = url or os.getenv("SUPABASE_URL")
-        self.key = key or os.getenv("SUPABASE_KEY")
+        discovered_url, discovered_key = discover_supabase_credentials()
+        self.url = (url or discovered_url or "").strip()
+        self.key = (key or discovered_key or "").strip()
         self.is_connected_to_supabase = False
         self.supabase_client: Optional[Any] = None
+        self.connection_error: Optional[str] = None
+        self.last_sync_time: Optional[str] = None
 
         # Check if real Supabase credentials are provided
         if SUPABASE_SDK_AVAILABLE and self.url and self.key and not self.url.startswith("https://your-project"):
-            try:
-                self.supabase_client = create_client(self.url, self.key)
-                _ = self.supabase_client.table("patients").select("patient_id").limit(1).execute()
-                self.is_connected_to_supabase = True
-                print(f"[DatabaseClient] Connected to remote Supabase: {self.url}")
-            except Exception as e:
-                print(f"[DatabaseClient] Remote Supabase connection failed ({e}). Defaulting to local resilient storage.")
-                self.is_connected_to_supabase = False
+            self.connect_to_supabase(self.url, self.key)
 
         # In-memory storage tables
         self.storage: Dict[str, List[Dict[str, Any]]] = {
@@ -53,8 +150,153 @@ class DatabaseClient:
             "counterfactual_simulations": []
         }
 
-        # Seed full cohort of patient profiles
+        # Seed full cohort of patient profiles for local resilient mode
         self._seed_default_cohort()
+
+    def connect_to_supabase(self, url: str, key: str) -> tuple[bool, str]:
+        """
+        Dynamically connects or switches connection to a live Supabase PostgreSQL instance.
+        Verifies connectivity by executing a probe query on public.patients.
+        """
+        url = url.strip()
+        key = key.strip()
+        if not url or not key:
+            self.connection_error = "Project URL and API Key must not be empty."
+            self.is_connected_to_supabase = False
+            return False, self.connection_error
+
+        if url.startswith("https://your-project") or "xyzcompany" in url:
+            self.connection_error = "Please replace the placeholder URL with your real Supabase project URL."
+            self.is_connected_to_supabase = False
+            return False, self.connection_error
+
+        if not SUPABASE_SDK_AVAILABLE:
+            self.connection_error = "supabase Python package is not installed."
+            self.is_connected_to_supabase = False
+            return False, self.connection_error
+
+        try:
+            client = create_client(url, key)
+            # Lightweight probe query
+            res = client.table("patients").select("patient_id").limit(1).execute()
+            self.supabase_client = client
+            self.url = url
+            self.key = key
+            self.is_connected_to_supabase = True
+            self.connection_error = None
+            self.last_sync_time = datetime.now(timezone.utc).isoformat()
+            print(f"[DatabaseClient] Connected successfully to remote Supabase PostgreSQL: {url}")
+            return True, "Connected successfully to live Supabase PostgreSQL database."
+        except Exception as e:
+            err_msg = str(e)
+            # If relation does not exist or schema cache doesn't have it yet, the credentials are valid but tables haven't been created yet
+            if (
+                "relation \"public.patients\" does not exist" in err_msg
+                or "relation 'public.patients' does not exist" in err_msg
+                or "PGRST204" in err_msg
+                or "PGRST205" in err_msg
+                or "schema cache" in err_msg
+            ):
+                self.supabase_client = client
+                self.url = url
+                self.key = key
+                self.is_connected_to_supabase = True
+                self.connection_error = "Connected to Supabase project, but public schema tables need to be created. Please run database/supabase_schema.sql in your Supabase SQL Editor."
+                self.last_sync_time = datetime.now(timezone.utc).isoformat()
+                print(f"[DatabaseClient] Connected to remote Supabase ({url}), schema tables pending setup.")
+                return True, self.connection_error
+
+            self.connection_error = f"Connection failed: {err_msg}"
+            self.is_connected_to_supabase = False
+            print(f"[DatabaseClient] Remote Supabase connection failed ({err_msg}). Reverting to local resilient storage.")
+            return False, self.connection_error
+
+    def disconnect_from_supabase(self):
+        """Disconnects from remote Supabase and reverts to local resilient mode."""
+        self.supabase_client = None
+        self.is_connected_to_supabase = False
+        self.connection_error = None
+
+    def get_connection_status(self) -> Dict[str, Any]:
+        """Returns real-time connection status, database telemetry, and record counts."""
+        masked_url = None
+        if self.url and not self.url.startswith("https://your-project"):
+            if len(self.url) > 22:
+                masked_url = self.url[:12] + "..." + self.url[-8:]
+            else:
+                masked_url = self.url
+
+        status: Dict[str, Any] = {
+            "is_connected": self.is_connected_to_supabase,
+            "mode": "Live Supabase PostgreSQL (Remote)" if self.is_connected_to_supabase else "Local Resilient Engine (Pre-seeded)",
+            "url": masked_url,
+            "raw_url": self.url if not self.url.startswith("https://your-project") else "",
+            "sdk_available": SUPABASE_SDK_AVAILABLE,
+            "last_checked": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "last_sync_time": self.last_sync_time,
+            "connection_error": self.connection_error,
+            "counts": {}
+        }
+
+        # Query live table counts if connected
+        if self.is_connected_to_supabase and self.supabase_client:
+            for tbl in ["patients", "mri_scans", "symptom_logs", "clinical_reports", "medications"]:
+                try:
+                    res = self.supabase_client.table(tbl).select("patient_id", count="exact").limit(1).execute()
+                    status["counts"][tbl] = res.count if hasattr(res, "count") and res.count is not None else len(res.data or [])
+                except Exception:
+                    status["counts"][tbl] = len(self.storage.get(tbl, []))
+        else:
+            for tbl in ["patients", "mri_scans", "symptom_logs", "clinical_reports", "medications"]:
+                status["counts"][tbl] = len(self.storage.get(tbl, []))
+
+        return status
+
+    def seed_remote_supabase(self) -> Dict[str, Any]:
+        """
+        Seeds the connected remote Supabase PostgreSQL database with the full clinical cohort
+        (patients, molecular profiles, MRI scans, reports, medications, symptom logs, timeline, simulations).
+        """
+        if not self.is_connected_to_supabase or not self.supabase_client:
+            return {"success": False, "error": "Not connected to a live Supabase instance."}
+
+        results: Dict[str, Any] = {"success": True, "seeded_tables": {}, "errors": []}
+        order_of_tables = [
+            "patients",
+            "molecular_profiles",
+            "mri_scans",
+            "clinical_reports",
+            "medications",
+            "symptom_logs",
+            "twin_timeline",
+            "counterfactual_simulations"
+        ]
+
+        for table_name in order_of_tables:
+            items = self.storage.get(table_name, [])
+            if not items:
+                continue
+            try:
+                cleaned_items = []
+                for item in items:
+                    row = dict(item)
+                    if table_name == "symptom_logs":
+                        # Ensure onset_time is a valid ISO timestamptz for Postgres
+                        raw_onset = row.get("onset_time")
+                        try:
+                            datetime.fromisoformat(str(raw_onset).replace("Z", "+00:00"))
+                        except Exception:
+                            row["onset_time"] = row.get("logged_at", datetime.now(timezone.utc).isoformat())
+                    cleaned_items.append(row)
+
+                _ = self.supabase_client.table(table_name).upsert(cleaned_items).execute()
+                results["seeded_tables"][table_name] = len(cleaned_items)
+            except Exception as e:
+                results["errors"].append(f"{table_name}: {str(e)}")
+                results["success"] = False
+
+        self.last_sync_time = datetime.now(timezone.utc).isoformat()
+        return results
 
     def _seed_default_cohort(self):
         """Seeds demo data for Patient V. Thanuja (0042), Marcus Chen (0043), and Priya Sharma (0044)"""
@@ -623,70 +865,93 @@ class DatabaseClient:
         return None
 
     def get_patient_scans(self, patient_id: str) -> List[Dict[str, Any]]:
-        """Retrieves historical MRI scans ordered by scan_date ascending."""
-        if self.is_connected_to_supabase:
+        """
+        Retrieves historical MRI scans ordered by scan_date ascending.
+        Fetches in real-time from Supabase PostgreSQL if connected, with resilient local fallback.
+        """
+        if self.is_connected_to_supabase and self.supabase_client:
             try:
                 res = self.supabase_client.table("mri_scans").select("*").eq("patient_id", patient_id).order("scan_date").execute()
-                if res.data:
-                    return res.data
-            except Exception:
-                pass
+                if res.data is not None and len(res.data) > 0:
+                    cleaned_scans = []
+                    for s in res.data:
+                        sc = dict(s)
+                        for k in ["wt_vol_cm3", "tc_vol_cm3", "et_vol_cm3", "edema_vol_cm3", "dice_score", "estimated_rcbv"]:
+                            if k in sc and sc[k] is not None:
+                                try:
+                                    sc[k] = float(sc[k])
+                                except (ValueError, TypeError):
+                                    pass
+                        cleaned_scans.append(sc)
+                    return sorted(cleaned_scans, key=lambda x: str(x.get("scan_date", "")))
+            except Exception as e:
+                print(f"[DatabaseClient] Remote Supabase scan fetch warning ({e}). Reverting to local store.")
+
         scans = [s for s in self.storage["mri_scans"] if s["patient_id"] == patient_id]
-        return sorted(scans, key=lambda x: x["scan_date"])
+        return sorted(scans, key=lambda x: str(x.get("scan_date", "")))
 
     def get_patient_reports(self, patient_id: str) -> List[Dict[str, Any]]:
         """Retrieves clinical reports ordered by report_date descending."""
-        if self.is_connected_to_supabase:
+        if self.is_connected_to_supabase and self.supabase_client:
             try:
                 res = self.supabase_client.table("clinical_reports").select("*").eq("patient_id", patient_id).order("report_date", desc=True).execute()
-                if res.data:
+                if res.data is not None and len(res.data) > 0:
                     return res.data
             except Exception:
                 pass
         reports = [r for r in self.storage["clinical_reports"] if r["patient_id"] == patient_id]
-        return sorted(reports, key=lambda x: x["report_date"], reverse=True)
+        return sorted(reports, key=lambda x: str(x.get("report_date", "")), reverse=True)
 
     def get_patient_medications(self, patient_id: str) -> List[Dict[str, Any]]:
         """Retrieves active medications and adherence status."""
-        if self.is_connected_to_supabase:
+        if self.is_connected_to_supabase and self.supabase_client:
             try:
                 res = self.supabase_client.table("medications").select("*").eq("patient_id", patient_id).execute()
-                if res.data:
+                if res.data is not None and len(res.data) > 0:
                     return res.data
             except Exception:
                 pass
         return [m for m in self.storage["medications"] if m["patient_id"] == patient_id]
 
-    def get_patient_symptoms(self, patient_id: str) -> List[Dict[str, Any]]:
-        """Retrieves patient-logged symptoms ordered by logged_at descending."""
-        if self.is_connected_to_supabase:
+    def get_patient_symptoms(self, patient_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Retrieves patient-logged symptoms ordered by logged_at descending.
+        Directly queries Supabase PostgreSQL in real-time if connected.
+        """
+        if self.is_connected_to_supabase and self.supabase_client:
             try:
-                res = self.supabase_client.table("symptom_logs").select("*").eq("patient_id", patient_id).order("logged_at", desc=True).execute()
-                if res.data:
+                res = self.supabase_client.table("symptom_logs")\
+                    .select("*")\
+                    .eq("patient_id", patient_id)\
+                    .order("logged_at", desc=True)\
+                    .limit(limit)\
+                    .execute()
+                if res.data is not None and len(res.data) > 0:
                     return res.data
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[DatabaseClient] Remote Supabase symptom fetch warning ({e}). Reverting to local store.")
+
         syms = [s for s in self.storage["symptom_logs"] if s["patient_id"] == patient_id]
-        return sorted(syms, key=lambda x: x["logged_at"], reverse=True)
+        return sorted(syms, key=lambda x: str(x.get("logged_at", "")), reverse=True)[:limit]
 
     def get_patient_timeline(self, patient_id: str) -> List[Dict[str, Any]]:
         """Retrieves latest digital twin evaluations."""
-        if self.is_connected_to_supabase:
+        if self.is_connected_to_supabase and self.supabase_client:
             try:
                 res = self.supabase_client.table("twin_timeline").select("*").eq("patient_id", patient_id).order("evaluation_date", desc=True).execute()
-                if res.data:
+                if res.data is not None and len(res.data) > 0:
                     return res.data
             except Exception:
                 pass
         t = [item for item in self.storage["twin_timeline"] if item["patient_id"] == patient_id]
-        return sorted(t, key=lambda x: x["evaluation_date"], reverse=True)
+        return sorted(t, key=lambda x: str(x.get("evaluation_date", "")), reverse=True)
 
     def get_patient_simulations(self, patient_id: str) -> List[Dict[str, Any]]:
         """Retrieves in-silico simulations for the patient."""
-        if self.is_connected_to_supabase:
+        if self.is_connected_to_supabase and self.supabase_client:
             try:
                 res = self.supabase_client.table("counterfactual_simulations").select("*").eq("patient_id", patient_id).execute()
-                if res.data:
+                if res.data is not None and len(res.data) > 0:
                     return res.data
             except Exception:
                 pass
@@ -695,17 +960,55 @@ class DatabaseClient:
     # --- Mutations & Insertions ---
 
     def log_symptom(self, symptom_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Logs a patient symptom entry."""
+        """
+        Logs a patient symptom entry with guaranteed PostgreSQL schema compliance.
+        Directly inserts into public.symptom_logs in Supabase PostgreSQL when connected.
+        """
         if "log_id" not in symptom_data:
             symptom_data["log_id"] = str(uuid.uuid4())
         if "logged_at" not in symptom_data:
             symptom_data["logged_at"] = datetime.now(timezone.utc).isoformat()
 
-        if self.is_connected_to_supabase:
+        # Map symptom_type to valid PostgreSQL check constraint enum: ('Headache', 'Vision', 'Seizure', 'Fatigue', 'Speech', 'Motor')
+        raw_type = str(symptom_data.get("symptom_type", "Headache"))
+        matched_type = "Headache"
+        for valid_t in ["Headache", "Vision", "Seizure", "Fatigue", "Speech", "Motor"]:
+            if valid_t.lower() in raw_type.lower():
+                matched_type = valid_t
+                break
+        symptom_data["symptom_type"] = matched_type
+
+        # Map severity to ('Mild', 'Moderate', 'Severe')
+        raw_sev = str(symptom_data.get("severity", "Mild"))
+        if "severe" in raw_sev.lower() or "4" in raw_sev or "5" in raw_sev:
+            symptom_data["severity"] = "Severe"
+        elif "moderate" in raw_sev.lower() or "3" in raw_sev:
+            symptom_data["severity"] = "Moderate"
+        else:
+            symptom_data["severity"] = "Mild"
+
+        # Ensure onset_time is a valid ISO timestamptz for Postgres
+        raw_onset = symptom_data.get("onset_time")
+        iso_onset = None
+        if raw_onset:
+            try:
+                datetime.fromisoformat(str(raw_onset).replace("Z", "+00:00"))
+                iso_onset = str(raw_onset)
+            except Exception:
+                orig_notes = symptom_data.get("notes", "")
+                symptom_data["notes"] = f"[Onset: {raw_onset}] {orig_notes}".strip()
+                iso_onset = datetime.now(timezone.utc).isoformat()
+        else:
+            iso_onset = datetime.now(timezone.utc).isoformat()
+        symptom_data["onset_time"] = iso_onset
+
+        # Insert into live Supabase PostgreSQL
+        if self.is_connected_to_supabase and self.supabase_client:
             try:
                 self.supabase_client.table("symptom_logs").insert(symptom_data).execute()
-            except Exception:
-                pass
+                self.last_sync_time = datetime.now(timezone.utc).isoformat()
+            except Exception as e:
+                print(f"[DatabaseClient] Supabase symptom_logs insert error: {e}")
 
         self.storage["symptom_logs"].insert(0, symptom_data)
         return symptom_data
@@ -721,11 +1024,12 @@ class DatabaseClient:
         if "last_updated_by" not in med_data:
             med_data["last_updated_by"] = "Doctor"
 
-        if self.is_connected_to_supabase:
+        if self.is_connected_to_supabase and self.supabase_client:
             try:
                 self.supabase_client.table("medications").insert(med_data).execute()
-            except Exception:
-                pass
+                self.last_sync_time = datetime.now(timezone.utc).isoformat()
+            except Exception as e:
+                print(f"[DatabaseClient] Supabase medications insert error: {e}")
 
         self.storage["medications"].append(med_data)
         return med_data
@@ -741,11 +1045,12 @@ class DatabaseClient:
         if notes:
             update_fields["adherence_notes"] = notes
 
-        if self.is_connected_to_supabase:
+        if self.is_connected_to_supabase and self.supabase_client:
             try:
                 self.supabase_client.table("medications").update(update_fields).eq("med_id", med_id).execute()
-            except Exception:
-                pass
+                self.last_sync_time = now_str
+            except Exception as e:
+                print(f"[DatabaseClient] Supabase medications update error: {e}")
 
         for m in self.storage["medications"]:
             if m["med_id"] == med_id:
@@ -758,17 +1063,31 @@ class DatabaseClient:
         return False
 
     def insert_scan_record(self, scan_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Inserts a segmented MRI scan record."""
+        """
+        Inserts a segmented MRI scan record with PostgreSQL schema compliance.
+        Directly inserts into public.mri_scans in Supabase PostgreSQL when connected.
+        """
         if "scan_id" not in scan_data:
             scan_data["scan_id"] = str(uuid.uuid4())
         if "created_at" not in scan_data:
             scan_data["created_at"] = datetime.now(timezone.utc).isoformat()
+        if "scan_date" not in scan_data:
+            scan_data["scan_date"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-        if self.is_connected_to_supabase:
+        # Format numeric fields
+        for k in ["wt_vol_cm3", "tc_vol_cm3", "et_vol_cm3", "edema_vol_cm3", "dice_score", "estimated_rcbv"]:
+            if k in scan_data and scan_data[k] is not None:
+                try:
+                    scan_data[k] = round(float(scan_data[k]), 4 if "dice" in k else 2)
+                except Exception:
+                    pass
+
+        if self.is_connected_to_supabase and self.supabase_client:
             try:
                 self.supabase_client.table("mri_scans").insert(scan_data).execute()
-            except Exception:
-                pass
+                self.last_sync_time = datetime.now(timezone.utc).isoformat()
+            except Exception as e:
+                print(f"[DatabaseClient] Supabase mri_scans insert error: {e}")
 
         self.storage["mri_scans"].append(scan_data)
         return scan_data
@@ -782,11 +1101,12 @@ class DatabaseClient:
         if "uploaded_by" not in report_data:
             report_data["uploaded_by"] = "Clinician"
 
-        if self.is_connected_to_supabase:
+        if self.is_connected_to_supabase and self.supabase_client:
             try:
                 self.supabase_client.table("clinical_reports").insert(report_data).execute()
-            except Exception:
-                pass
+                self.last_sync_time = datetime.now(timezone.utc).isoformat()
+            except Exception as e:
+                print(f"[DatabaseClient] Supabase clinical_reports insert error: {e}")
 
         self.storage["clinical_reports"].insert(0, report_data)
         return report_data
@@ -798,11 +1118,12 @@ class DatabaseClient:
         if "created_at" not in timeline_data:
             timeline_data["created_at"] = datetime.now(timezone.utc).isoformat()
 
-        if self.is_connected_to_supabase:
+        if self.is_connected_to_supabase and self.supabase_client:
             try:
                 self.supabase_client.table("twin_timeline").insert(timeline_data).execute()
-            except Exception:
-                pass
+                self.last_sync_time = datetime.now(timezone.utc).isoformat()
+            except Exception as e:
+                print(f"[DatabaseClient] Supabase twin_timeline insert error: {e}")
 
         self.storage["twin_timeline"].insert(0, timeline_data)
         return timeline_data
@@ -811,9 +1132,10 @@ class DatabaseClient:
 # Global Singleton Client
 _global_db_client: Optional[DatabaseClient] = None
 
-def get_database_client() -> DatabaseClient:
-    """Returns singleton instance of DatabaseClient."""
+def get_database_client(force_reconnect: bool = False) -> DatabaseClient:
+    """Returns singleton instance of DatabaseClient, with optional refresh."""
     global _global_db_client
-    if _global_db_client is None:
+    if _global_db_client is None or force_reconnect:
         _global_db_client = DatabaseClient()
     return _global_db_client
+

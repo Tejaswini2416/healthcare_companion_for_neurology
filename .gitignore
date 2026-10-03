@@ -57,6 +57,8 @@ Thumbs.db
 
 # Streamlit cache
 .streamlit/secrets.toml
+**/.streamlit/secrets.toml
+secrets.toml
 
 # Testing & Coverage
 .pytest_cache/
