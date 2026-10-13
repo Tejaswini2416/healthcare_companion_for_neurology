@@ -28,7 +28,7 @@
 
 ## 🏗️ System Architecture
 
-```mermaid
+``` mermaid
 graph TD
     subgraph Multi-Source Ingestion & Verification
         A[4-Channel 3D MRI: T1, T1ce, T2, FLAIR] --> B[MONAI SegResNet 3D]
