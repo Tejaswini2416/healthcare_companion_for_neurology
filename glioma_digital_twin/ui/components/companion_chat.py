@@ -1,14 +1,18 @@
 """
-Medications & Conversational Care Companion Component
-One-tap medication adherence schedule, automated adherence rate,
-and twin-grounded interactive Care Companion with quick prompt chips.
-Supports dynamic patient context across all pre-seeded patients.
+Medications & Conversational Care Companion Component (GPT-4o & Bio-LLM Architecture)
+Features:
+1. One-tap medication adherence tracking and live compliance percentage.
+2. Full ChatGPT-like interactive Care Companion grounded in the Patient Digital Twin.
+3. Model selector (OpenAI GPT-4o, GPT-4o-mini, Groq LLaMA-3, and built-in Clinical GPT).
+4. Direct API key configuration card for seamless cloud LLM access.
+5. Quick suggested clinical prompt chips and multi-turn conversation memory.
+6. GraphRAG anti-hallucination verification badges and clinical literature citations.
 """
 
+import os
 import streamlit as st
 from typing import Dict, Any, List, Optional
 from ...utils.supabase_client import get_database_client
-
 from ...models.companion_agent import CareCompanionAgent
 
 
@@ -54,7 +58,7 @@ def _render_graph_rag_badge(rag_data: Optional[Dict[str, Any]]):
 
 
 def render_companion_chat():
-    """Renders the Medications Tracker and Conversational Care Companion."""
+    """Renders the Medications Tracker and Conversational Care Companion GPT."""
     db = get_database_client()
     active_mrn = st.session_state.get("active_patient_mrn", "0042")
     patient = db.get_patient_by_mrn(active_mrn)
@@ -67,7 +71,9 @@ def render_companion_chat():
     patient_id = patient["patient_id"]
     meds = db.get_patient_medications(patient_id)
 
-    # 1. Medications Section & One-Tap Adherence Statuses
+    # =========================================================================
+    # 1. MEDICATIONS TRACKER & ONE-TAP ADHERENCE
+    # =========================================================================
     st.subheader(f"💊 Prescriptions & Adherence Schedule for {patient['full_name']}")
 
     total_meds = len(meds)
@@ -116,9 +122,108 @@ def render_companion_chat():
 
     st.divider()
 
-    # 2. Conversational Care Companion
-    st.subheader("💬 Personalized Care Companion")
-    st.markdown("Your digital companion is grounded in your latest scans, lab results, and validated against NCCN clinical guidelines.")
+    # =========================================================================
+    # 2. CONVERSATIONAL CARE COMPANION (GPT-4o & CLINICAL BIO-LLM)
+    # =========================================================================
+    st.subheader("💬 AI Care Companion & Digital Twin GPT")
+    st.caption(
+        "Chat naturally with your personal health companion powered by GPT architecture. "
+        "Directly grounded in your 3D brain scans, medication history, and NCCN clinical oncology guidelines."
+    )
+
+    # Model Configuration & API Key Expander
+    openai_key_in_env = os.environ.get("OPENAI_API_KEY", "")
+    current_key = st.session_state.get("openai_api_key", openai_key_in_env)
+    groq_key_in_env = os.environ.get("GROQ_API_KEY", "")
+    current_groq_key = st.session_state.get("groq_api_key", groq_key_in_env)
+
+    # Top Toolbar: Model Selector & Live Status
+    col_mod, col_stat = st.columns([1.5, 1.2])
+
+    with col_mod:
+        model_display_names = {
+            "OpenAI GPT-4o (State-of-the-Art)": "gpt-4o",
+            "OpenAI GPT-4o Mini (Fast & Cost-Effective)": "gpt-4o-mini",
+            "Groq LLaMA-3.3 70B (High-Speed Cloud LLM)": "llama-3.3-70b-versatile",
+            "Digital Twin Clinical GPT (Built-in Bio-LLM)": "clinical-gpt"
+        }
+        selected_display = st.selectbox(
+            "🧠 Chatbot LLM Engine:",
+            options=list(model_display_names.keys()),
+            index=0 if current_key else 3,
+            key=f"llm_model_select_{patient['mrn']}"
+        )
+        selected_model_code = model_display_names[selected_display]
+
+    with col_stat:
+        if current_key and "gpt" in selected_model_code:
+            st.markdown(
+                """
+                <div style="background: #f0fdf4; border: 1.5px solid #22c55e; border-radius: 8px; padding: 10px 14px; margin-top: 18px;">
+                    <span style="color: #15803d; font-weight: 700; font-size: 0.85rem;">🟢 OpenAI GPT Connected</span><br>
+                    <span style="color: #475569; font-size: 0.75rem;">Direct cloud inference with Digital Twin grounding</span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        elif current_groq_key and "llama" in selected_model_code:
+            st.markdown(
+                """
+                <div style="background: #eff6ff; border: 1.5px solid #3b82f6; border-radius: 8px; padding: 10px 14px; margin-top: 18px;">
+                    <span style="color: #1d4ed8; font-weight: 700; font-size: 0.85rem;">🚀 Groq Cloud Active</span><br>
+                    <span style="color: #475569; font-size: 0.75rem;">High-speed 70B parameter inference</span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                """
+                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; margin-top: 18px;">
+                    <span style="color: #0f172a; font-weight: 700; font-size: 0.85rem;">⚡ Built-in Clinical GPT Active</span><br>
+                    <span style="color: #64748b; font-size: 0.75rem;">OpenAI key optional (paste below for direct GPT-4o)</span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    # Expandable Settings to enter / paste OpenAI or Groq API Keys
+    with st.expander("⚙️ Connect Your OpenAI GPT-4o or Groq API Key (Optional)", expanded=False):
+        c_k1, c_k2 = st.columns(2)
+        with c_k1:
+            input_key = st.text_input(
+                "OpenAI API Key (sk-...):",
+                type="password",
+                value=current_key,
+                placeholder="sk-proj-...",
+                help="Your OpenAI API key is used strictly for generating conversational health companion responses.",
+                key="openai_key_input_box"
+            )
+            if input_key != current_key:
+                st.session_state["openai_api_key"] = input_key.strip()
+                os.environ["OPENAI_API_KEY"] = input_key.strip()
+                st.toast("OpenAI API Key updated!", icon="🔑")
+                st.rerun()
+
+        with c_k2:
+            input_groq = st.text_input(
+                "Groq API Key (gsk_...):",
+                type="password",
+                value=current_groq_key,
+                placeholder="gsk_...",
+                help="Optional: Free/Fast Groq cloud inference.",
+                key="groq_key_input_box"
+            )
+            if input_groq != current_groq_key:
+                st.session_state["groq_api_key"] = input_groq.strip()
+                os.environ["GROQ_API_KEY"] = input_groq.strip()
+                st.toast("Groq API Key updated!", icon="🔑")
+                st.rerun()
+
+        st.caption(
+            "💡 *Tip: If you do not have an API key, leave this blank! The Built-in Clinical GPT Engine "
+            "answers every question comprehensively using your individual Digital Twin facts.*"
+        )
 
     # Initialize chat history in session state per patient
     history_key = f"companion_history_{patient['mrn']}"
@@ -127,10 +232,12 @@ def render_companion_chat():
             {
                 "role": "assistant",
                 "content": (
-                    f"Hello {patient['full_name']}, I am your personalized Care Companion. "
-                    "I am directly connected to your patient digital twin. Feel free to ask about your scan findings, "
-                    "medications, or how to manage symptoms. I am here to help you understand your journey."
+                    f"Hello {patient['full_name']}, I am your personalized AI Care Companion (Digital Twin GPT). "
+                    "I am directly connected to your 3D brain scans, lab biomarkers, and medication schedule. "
+                    "Feel free to ask me anything about your diagnosis, MRI findings, symptoms, diet, or daily life. "
+                    "How are you feeling today?"
                 ),
+                "model_used": "Digital Twin GPT",
                 "graph_rag": {
                     "is_graph_verified": True,
                     "anti_hallucination_score": 0.98,
@@ -145,55 +252,101 @@ def render_companion_chat():
             }
         ]
 
-    # Quick prompt chips
-    st.markdown("##### 💡 Suggested Questions")
-    chip_cols = st.columns(4)
-    quick_prompts = [
-        "What does perilesional edema mean?",
-        "Is it okay that I missed my Levetiracetam?",
-        "When do I hold Temozolomide?",
-        "Explain my latest scan"
-    ]
+    # Quick prompt chips and clear conversation button
+    c_chip_hdr, c_reset = st.columns([3, 1])
+    with c_chip_hdr:
+        st.markdown("##### 💡 Suggested Questions")
+    with c_reset:
+        if st.button("🗑️ Reset Chat", key=f"clear_chat_{patient['mrn']}", use_container_width=True):
+            del st.session_state[history_key]
+            st.rerun()
 
+    row1_cols = st.columns(4)
+    quick_prompts_row1 = [
+        "Explain like I'm 10 years old",
+        "Explain my latest scan results",
+        "Can I drink coffee in the morning?",
+        "What if I vomit my Temozolomide?"
+    ]
     selected_chip = None
-    for i, prompt in enumerate(quick_prompts):
-        with chip_cols[i]:
-            if st.button(prompt, key=f"chip_{patient['mrn']}_{i}", use_container_width=True):
+    for i, prompt in enumerate(quick_prompts_row1):
+        with row1_cols[i]:
+            if st.button(prompt, key=f"chip_r1_{patient['mrn']}_{i}", use_container_width=True):
+                selected_chip = prompt
+
+    row2_cols = st.columns(4)
+    quick_prompts_row2 = [
+        "What diet is best for brain recovery?",
+        "Can I drive a car right now?",
+        "Why am I feeling so tired?",
+        "What should I ask Dr. Thorne?"
+    ]
+    for i, prompt in enumerate(quick_prompts_row2):
+        with row2_cols[i]:
+            if st.button(prompt, key=f"chip_r2_{patient['mrn']}_{i}", use_container_width=True):
                 selected_chip = prompt
 
     # Render previous messages
     for msg in st.session_state[history_key]:
-        with st.chat_message(msg["role"]):
+        with st.chat_message(msg["role"], avatar="🩺" if msg["role"] == "assistant" else "👤"):
+            if msg["role"] == "assistant" and msg.get("model_used"):
+                st.markdown(
+                    f"<span style='font-size:0.75rem; background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:12px; font-weight:600; display:inline-block; margin-bottom:6px;'>🤖 {msg['model_used']}</span>",
+                    unsafe_allow_html=True
+                )
             st.markdown(msg["content"])
-            if msg.get("cross_modal_insight"):
-                st.caption(f"🧠 **Twin Cross-Modal Insight**: {msg['cross_modal_insight']}")
             if msg.get("graph_rag"):
                 _render_graph_rag_badge(msg["graph_rag"])
 
     # Chat input
-    user_input = st.chat_input("Ask a question about your diagnosis, scan results, or medications...")
+    user_input = st.chat_input("Ask anything about your diagnosis, scan results, medications, or daily life...")
     prompt_to_process = selected_chip or user_input
 
     if prompt_to_process:
         # Display user message
         st.session_state[history_key].append({"role": "user", "content": prompt_to_process})
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar="👤"):
             st.markdown(prompt_to_process)
 
-        # Generate response from twin-grounded agent
-        agent = CareCompanionAgent()
-        with st.chat_message("assistant"):
-            with st.spinner("Connecting with your Patient Digital Twin & GraphRAG Guard..."):
-                response_obj = agent.generate_response(
-                    prompt_to_process,
-                    patient_id=patient_id,
-                    conversation_history=st.session_state[history_key]
-                )
-                bot_text = response_obj["response_text"]
-                st.markdown(bot_text)
+        # Synchronize environment variables for seamless inference
+        if current_key:
+            os.environ["OPENAI_API_KEY"] = current_key.strip()
+        if current_groq_key:
+            os.environ["GROQ_API_KEY"] = current_groq_key.strip()
+        os.environ["COMPANION_MODEL_NAME"] = selected_model_code
 
-                if response_obj.get("cross_modal_insight"):
-                    st.caption(f"🧠 **Twin Cross-Modal Insight**: {response_obj['cross_modal_insight']}")
+        # Generate response from twin-grounded agent
+        import importlib
+        from ...models import companion_agent
+        importlib.reload(companion_agent)
+        agent = companion_agent.CareCompanionAgent()
+
+        with st.chat_message("assistant", avatar="🩺"):
+            spinner_text = "Thinking with OpenAI GPT-4o..." if (current_key and "gpt" in selected_model_code) else "Thinking with Digital Twin Clinical GPT..."
+            with st.spinner(spinner_text):
+                try:
+                    response_obj = agent.generate_response(
+                        prompt_to_process,
+                        patient_id=patient_id,
+                        conversation_history=st.session_state[history_key],
+                        openai_api_key=current_key if current_key else None,
+                        model_name=selected_model_code,
+                        groq_api_key=current_groq_key if current_groq_key else None
+                    )
+                except Exception:
+                    response_obj = agent.generate_response(
+                        prompt_to_process,
+                        patient_id=patient_id,
+                        conversation_history=st.session_state[history_key]
+                    )
+                bot_text = response_obj["response_text"]
+                model_tag = response_obj.get("model_used", "Digital Twin GPT")
+
+                st.markdown(
+                    f"<span style='font-size:0.75rem; background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:12px; font-weight:600; display:inline-block; margin-bottom:6px;'>🤖 {model_tag}</span>",
+                    unsafe_allow_html=True
+                )
+                st.markdown(bot_text)
 
                 if response_obj.get("graph_rag"):
                     _render_graph_rag_badge(response_obj["graph_rag"])
@@ -201,6 +354,7 @@ def render_companion_chat():
         st.session_state[history_key].append({
             "role": "assistant",
             "content": bot_text,
+            "model_used": model_tag,
             "cross_modal_insight": response_obj.get("cross_modal_insight"),
             "graph_rag": response_obj.get("graph_rag")
         })

@@ -59,29 +59,7 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
         unsafe_allow_html=True
     )
 
-    # 2. Dynamic Alert Banner (Fusion Layer Trigger)
-    alert_text = latest_twin.get("alert_banner_text", "")
-    triage_cat = latest_twin.get("triage_category", "Moderate")
 
-    if alert_text:
-        border_color = "#f59e0b" if triage_cat == "Moderate" else ("#ef4444" if triage_cat == "Critical" else "#10b981")
-        bg_color = "#fffbeb" if triage_cat == "Moderate" else ("#fef2f2" if triage_cat == "Critical" else "#ecfdf5")
-        icon = "⚠️" if triage_cat == "Moderate" else ("🚨" if triage_cat == "Critical" else "✅")
-
-        st.markdown(
-            f"""
-            <div style="background-color: {bg_color}; border-left: 6px solid {border_color}; padding: 1rem 1.2rem; border-radius: 8px; margin-bottom: 1.2rem;">
-                <div style="display: flex; align-items: flex-start;">
-                    <span style="font-size: 1.4rem; margin-right: 12px;">{icon}</span>
-                    <div>
-                        <strong style="color: #92400e; font-size: 0.95rem; text-transform: uppercase;">Multimodal Twin Alert ({triage_cat} Priority)</strong>
-                        <p style="margin: 4px 0 0 0; color: #1f2937; font-size: 0.95rem;">{alert_text}</p>
-                    </div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
 
     # 3. Four Core Stat Cards
     c1, c2, c3, c4 = st.columns(4)
@@ -132,11 +110,12 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
 
 
     with c4:
+        next_visit_str = patient.get("next_visit_date", "28-Oct-2026")
         st.markdown(
-            """
+            f"""
             <div style="background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <span style="font-size: 0.8rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Next Clinical Visit</span>
-                <h3 style="margin: 6px 0; font-size: 1.7rem; color: #0f766e; font-weight: 700;">Oct 12</h3>
+                <h3 style="margin: 6px 0; font-size: 1.5rem; color: #0f766e; font-weight: 700;">{next_visit_str}</h3>
                 <span style="color: #6b7280; font-size: 0.85rem;">Neuro-Oncology Follow-up</span>
             </div>
             """,
@@ -147,10 +126,10 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
 
     # 4. Quick-Access Action Grid
     st.markdown("##### ⚡ Quick Access")
-    q1, q2, q3, q4, q5 = st.columns(5)
+    q1, q2, q3, q4, q5, q6 = st.columns(6)
 
     with q1:
-        if st.button("📋 Scans & Reports", use_container_width=True, help="Inspect MRI and 6th-grade translated reports"):
+        if st.button("📋 Scans & Reports", use_container_width=True, help="Inspect MRI and 10-year-old kid translated reports"):
             on_navigate("reports")
     with q2:
         if st.button("📝 Log Symptom", use_container_width=True, help="Record headaches, seizures, or fatigue"):
@@ -164,6 +143,9 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
     with q5:
         if st.button("📤 Upload MRI Scan", use_container_width=True, help="Upload and evaluate brain scan"):
             on_navigate("evaluator")
+    with q6:
+        if st.button("📄 Upload & Verify Reports", use_container_width=True, help="Upload and verify clinical text reports"):
+            on_navigate("report_verify")
 
     st.divider()
 
@@ -174,25 +156,25 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
         st.markdown("##### 👤 Patient Information & Molecular Genetics")
         st.markdown(
             f"""
-            - **Medical Record Number**: `{patient['mrn']}`
-            - **Baseline KPS Functionality**: **{patient['baseline_kps']}%**
-            - **Primary Oncologist**: {patient['oncologist_name']}
-            - **Primary Care Navigator**: {patient['nurse_name']}
-            - **Diagnosis**: {patient['diagnosis_type']}
-            - **Anatomical Subsite**: {patient['diagnosis_location']}
+            - **Medical Record Number**: `{patient.get('mrn', 'N/A')}`
+            - **Baseline KPS Functionality**: **{patient.get('baseline_kps', 90)}%**
+            - **Primary Oncologist**: {patient.get('oncologist_name', 'Dr. Aris Thorne, MD')}
+            - **Primary Care Navigator**: {patient.get('nurse_name', 'Sarah Jensen, RN')}
+            - **Diagnosis**: {patient.get('diagnosis_type', 'Glioma')}
+            - **Anatomical Subsite**: {patient.get('diagnosis_location', 'Brain')}
+            - **Initial Diagnosis Date**: `{patient.get('diagnosis_date', 'N/A')}`
             """
         )
 
     with c_care:
-        st.markdown("##### 🔒 Privacy & Research Consent Governance")
-        st.caption("Healthcare Companion adheres to HIPAA, GDPR, and strict patient consent guardrails.")
-
-        consent_state = st.toggle(
-            "Share De-Identified Data with Brain Tumor Research Consortia",
-            value=patient.get("share_research_consent", True),
-            key="research_consent_toggle"
+        st.markdown("##### 🏥 Care Team & Clinical Contacts")
+        st.markdown(
+            f"""
+            - **Attending Neuro-Oncologist**: {patient.get('oncologist_name', 'Dr. Aris Thorne, MD')}
+            - **Nurse Care Navigator**: {patient.get('nurse_name', 'Sarah Jensen, RN')}
+            - **Next Follow-up Visit**: `{next_visit_str}`
+            - **Neuro-Oncology Triage Helpline**: `+91 (080) 4123-8900`
+            - **On-Call Attending Line**: `+1 (555) 019-8492`
+            - **Location**: Comprehensive Brain Tumor Center & Clinic
+            """
         )
-        if consent_state:
-            st.success("✅ Research consent active: Your de-identified scans help improve biophysical models globally.")
-        else:
-            st.info("🔒 Strict Local Mode: Your data remains private to your hospital care team.")

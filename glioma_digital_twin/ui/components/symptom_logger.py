@@ -6,10 +6,12 @@ Supports dynamic patient context across all pre-seeded patients.
 """
 
 import streamlit as st
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
 from ...utils.supabase_client import get_database_client
 from ...models.red_flag_alert import get_escalation_engine
+
+IST = timezone(timedelta(hours=5, minutes=30))
 
 
 def render_symptom_logger():
@@ -52,8 +54,7 @@ def render_symptom_logger():
                     • <em>Recommendation</em>: {active_alert['sbar']['recommendation']}
                 </div>
                 <div style="margin-top: 10px; font-size: 0.8rem; color: #0f766e; background: white; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1;">
-                    📱 <strong>SMS Gateway</strong>: Delivered to On-Call Attending ({active_alert['dispatch_channels']['sms']['to']})<br>
-                    📟 <strong>Hospital Pager Webhook</strong>: {active_alert['dispatch_channels']['pager_webhook']['status']} (Priority: {active_alert['dispatch_channels']['pager_webhook']['priority']})
+                    📱 <strong>SMS Gateway</strong>: Delivered to On-Call Attending (+1 (555) 019-8492 (Attending Neuro-Oncologist On-Call))
                 </div>
             </div>
             """,
@@ -76,7 +77,7 @@ def render_symptom_logger():
         "💫 Dizziness",
         "😴 Extreme Fatigue",
         "🗣️ Speech Trouble",
-        "🦾 Motor Weakness"
+        "🦾 Muscle Weakness"
     ]
     selected_pills = st.pills(
         "Symptoms Encountered:",
@@ -89,7 +90,7 @@ def render_symptom_logger():
     primary_symptom = selected_pills[0].split()[1] if selected_pills else "General"
     all_symptoms_str = ", ".join(selected_pills) if selected_pills else "None selected"
 
-    # 2. Form details (Severity, Voice Dictation, Notes)
+    # 2. Form details (Severity, Notes)
     with st.form("symptom_entry_form", clear_on_submit=False):
         col_sev, col_onset = st.columns(2)
 
@@ -114,7 +115,7 @@ def render_symptom_logger():
                 index=0
             )
 
-        st.markdown("##### 3️⃣ Dictate Voice Log & Additional Context")
+        st.markdown("##### 3️⃣ Additional Notes & Clinical Context")
         notes = st.text_area(
             "Patient Notes & Context (Optional)",
             placeholder="Describe what you were doing, any unusual sensations (like burning smells, tingling, visual flashes), or medications taken...",
@@ -156,14 +157,6 @@ def render_symptom_logger():
 
             st.rerun()
 
-    # Voice Input Recorder (outside form for instant stream capture)
-    with st.expander("🎙️ Attach Native Voice Dictation to Doctor Log", expanded=True):
-        st.write("Record a spoken description for your oncologist and care navigator:")
-        audio_val = st.audio_input("Record audio note:")
-        if audio_val:
-            st.audio(audio_val)
-            st.caption("🎙️ Voice note recorded. This will be transmitted to Dr. Thorne's clinical in-basket.")
-
     st.divider()
 
     # 3. Real-Time Symptom Stream via Streamlit Fragment
@@ -185,17 +178,12 @@ def _render_live_symptom_stream(patient_id: str):
         st.markdown("##### 📜 Real-Time Symptom Stream")
     with col_sync:
         mode_badge = "🟢 Live Supabase (5s)" if is_live else "🟡 Local Real-Time Cache"
-        st.caption(f"{mode_badge} • `{datetime.now().strftime('%H:%M:%S')}`")
+        st.caption(f"{mode_badge} • `{datetime.now(IST).strftime('%I:%M:%S %p IST')}`")
 
     symptoms = db.get_patient_symptoms(patient_id, limit=8)
 
-    c_cnt, c_rf = st.columns([3, 1])
-    with c_cnt:
-        target_db = "Supabase PostgreSQL" if is_live else "Local Patient Memory"
-        st.caption(f"Displaying **{len(symptoms)}** live entries fetched from **{target_db}**")
-    with c_rf:
-        if st.button("🔄 Sync Now", key="btn_sync_symptoms_now", use_container_width=True):
-            st.rerun()
+    target_db = "Supabase PostgreSQL" if is_live else "Local Patient Memory"
+    st.caption(f"Displaying **{len(symptoms)}** live entries fetched from **{target_db}**")
 
     if symptoms:
         for s in symptoms:
@@ -204,7 +192,7 @@ def _render_live_symptom_stream(patient_id: str):
             if "T" in time_display:
                 try:
                     dt = datetime.fromisoformat(time_display.replace("Z", "+00:00"))
-                    time_display = dt.strftime("%b %d, %H:%M UTC")
+                    time_display = dt.astimezone(IST).strftime("%d-%b-%Y, %I:%M %p IST")
                 except Exception:
                     pass
 

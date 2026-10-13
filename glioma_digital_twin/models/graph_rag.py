@@ -117,6 +117,38 @@ class NeuroOncologyKnowledgeGraph:
                 "name": "RANO 2.0 Pseudoprogression (PsP) Rule",
                 "guideline": "Within 12 weeks (84 days) post-completion of radiotherapy, enhancing lesion enlargement CANNOT be diagnosed as true tumor recurrence unless there is unequivocal new enhancement outside the radiation field or histopathologic confirmation of viable tumor.",
                 "perfusion_corroboration": "Perfusion DSC-MRI rCBV < 1.75 indicates hypoperfusion / radiation necrosis. Continue current adjuvant chemotherapy and re-scan in 8 weeks."
+            },
+
+            # --- Clinical Supportive Care & Lifestyle Guidelines ---
+            "topic_nutrition": {
+                "type": "ClinicalSupport",
+                "name": "Nutrition, Diet & Hydration in Neuro-Oncology",
+                "guideline": "High-protein, calorie-dense balanced Mediterranean-style nutrition preserves lean muscle mass during concurrent chemoradiotherapy. Maintain 2.0-2.5 liters of daily fluid intake to assist renal clearance of chemotherapy metabolites. High-dose antioxidant supplements (Vitamin C >1000mg, Vitamin E, CoQ10) should be avoided during active radiotherapy and alkylator therapy to prevent quenching therapeutic free radicals."
+            },
+            "topic_fatigue": {
+                "type": "ClinicalSupport",
+                "name": "Cancer-Related Fatigue & Post-Radiation Somnolence",
+                "guideline": "Post-radiation fatigue typically manifests around weeks 3-4 and peaks 2-4 weeks post-completion. Somnolence syndrome arises from transient oligodendrocyte demyelination. Evidence strongly supports regular moderate physical activity (15-30 minutes light walking), scheduled 20-30 minute rest breaks, and prioritizing high-energy tasks over continuous bed rest."
+            },
+            "topic_radiation_care": {
+                "type": "ClinicalSupport",
+                "name": "Cranial Radiotherapy & Scalp Care",
+                "guideline": "Alopecia is focal to radiation beam entry portals, generally beginning around weeks 2-3. Hair regrowth typically begins 2-4 months following radiation completion. Scalp hygiene requires lukewarm water and gentle, fragrance-free baby shampoos without vigorous scrubbing; avoid applying lotions or topicals within 4 hours prior to daily radiation fraction delivery."
+            },
+            "topic_seizure_safety": {
+                "type": "ClinicalSupport",
+                "name": "Seizure Precautions & Driving Guidelines",
+                "guideline": "For supratentorial brain tumors, antiepileptic drug compliance is essential. Acute seizure first aid: place patient in lateral recovery position, protect head, loosen restrictive neckwear, never insert objects into mouth, and monitor duration. Seek immediate emergency care (call 911) if seizure exceeds 5 minutes. Statutory driving restrictions require 6 to 12 months seizure-free interval under physician clearance."
+            },
+            "topic_thrombosis_dvt": {
+                "type": "ClinicalSupport",
+                "name": "Venous Thromboembolism (DVT/PE) Prophylaxis & Recognition",
+                "guideline": "High-grade glioma patients exhibit a 20-30% annual cumulative incidence of venous thromboembolism due to tissue factor overexpression, focal paresis, and corticosteroid use. Unilateral lower extremity edema, erythema, and calf tenderness warrant urgent bilateral venous compression duplex ultrasound; acute pleuritic chest pain or dyspnea warrants immediate emergency CTA to rule out pulmonary embolism."
+            },
+            "topic_neutropenic_fever": {
+                "type": "ClinicalSupport",
+                "name": "Neutropenic Fever & Infection Surveillance",
+                "guideline": "An oral temperature >= 100.4°F (38.0°C) during Temozolomide therapy or immunosuppressive corticosteroid therapy is an oncologic emergency requiring emergency department presentation for blood cultures, CBC, and prompt empiric broad-spectrum intravenous antibiotic coverage."
             }
         }
 
@@ -129,7 +161,9 @@ class NeuroOncologyKnowledgeGraph:
             {"source": "protocol_pcv", "rel": "USES_DRUG", "target": "drug_lomustine"},
             {"source": "biomarker_mgmt_methylated", "rel": "PREDICTS_PHENOMENON", "target": "rano_psp_criteria"},
             {"source": "drug_dexamethasone", "rel": "MANAGES_SYMPTOM", "target": "perilesional_edema"},
-            {"source": "drug_temozolomide", "rel": "HAS_TOXICITY_RULE", "target": "hematologic_thresholds"}
+            {"source": "drug_temozolomide", "rel": "HAS_TOXICITY_RULE", "target": "hematologic_thresholds"},
+            {"source": "protocol_stupp", "rel": "ASSOCIATED_EFFECT", "target": "topic_fatigue"},
+            {"source": "protocol_stupp", "rel": "REQUIRES_SUPPORT", "target": "topic_nutrition"}
         ]
 
     def find_relevant_subgraph(self, query_text: str, patient_context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
@@ -148,15 +182,21 @@ class NeuroOncologyKnowledgeGraph:
                 matched_nodes.append((node_id, node_data, 0.85))
 
         # Keyword mapping rules
-        if any(w in q_lower for w in ["keppra", "seizure", "aura", "shaking", "levetiracetam"]):
+        if any(w in q_lower for w in ["keppra", "seizure", "aura", "shaking", "levetiracetam", "vimpat", "convulsion"]):
             if "drug_levetiracetam" not in [m[0] for m in matched_nodes]:
                 matched_nodes.append(("drug_levetiracetam", self.nodes["drug_levetiracetam"], 0.95))
+            if "topic_seizure_safety" not in [m[0] for m in matched_nodes]:
+                matched_nodes.append(("topic_seizure_safety", self.nodes["topic_seizure_safety"], 0.92))
+
+        if any(w in q_lower for w in ["drive", "driving", "car", "license"]):
+            if "topic_seizure_safety" not in [m[0] for m in matched_nodes]:
+                matched_nodes.append(("topic_seizure_safety", self.nodes["topic_seizure_safety"], 0.95))
 
         if any(w in q_lower for w in ["temodar", "temozolomide", "chemo", "pill", "capsule", "cycle", "dose"]):
             if "drug_temozolomide" not in [m[0] for m in matched_nodes]:
                 matched_nodes.append(("drug_temozolomide", self.nodes["drug_temozolomide"], 0.95))
 
-        if any(w in q_lower for w in ["steroid", "dexamethasone", "swelling", "edema"]):
+        if any(w in q_lower for w in ["steroid", "dexamethasone", "swelling", "edema", "taper"]):
             if "drug_dexamethasone" not in [m[0] for m in matched_nodes]:
                 matched_nodes.append(("drug_dexamethasone", self.nodes["drug_dexamethasone"], 0.90))
 
@@ -167,6 +207,26 @@ class NeuroOncologyKnowledgeGraph:
         if any(w in q_lower for w in ["blood count", "platelet", "neutrophil", "anc", "wbc", "cbc"]):
             if "drug_temozolomide" not in [m[0] for m in matched_nodes]:
                 matched_nodes.append(("drug_temozolomide", self.nodes["drug_temozolomide"], 0.90))
+
+        if any(w in q_lower for w in ["diet", "food", "eat", "nutrition", "drink", "coffee", "tea", "water", "supplement", "vitamin"]):
+            if "topic_nutrition" not in [m[0] for m in matched_nodes]:
+                matched_nodes.append(("topic_nutrition", self.nodes["topic_nutrition"], 0.92))
+
+        if any(w in q_lower for w in ["tired", "fatigue", "exhausted", "sleep", "rest", "energy", "somnolence"]):
+            if "topic_fatigue" not in [m[0] for m in matched_nodes]:
+                matched_nodes.append(("topic_fatigue", self.nodes["topic_fatigue"], 0.92))
+
+        if any(w in q_lower for w in ["hair", "scalp", "alopecia", "skin", "shampoo", "radiation burn"]):
+            if "topic_radiation_care" not in [m[0] for m in matched_nodes]:
+                matched_nodes.append(("topic_radiation_care", self.nodes["topic_radiation_care"], 0.92))
+
+        if any(w in q_lower for w in ["clot", "dvt", "pulmonary", "embolism", "calf", "leg swelling", "thrombosis"]):
+            if "topic_thrombosis_dvt" not in [m[0] for m in matched_nodes]:
+                matched_nodes.append(("topic_thrombosis_dvt", self.nodes["topic_thrombosis_dvt"], 0.95))
+
+        if any(w in q_lower for w in ["fever", "infection", "temperature", "chills", "neutropenia"]):
+            if "topic_neutropenic_fever" not in [m[0] for m in matched_nodes]:
+                matched_nodes.append(("topic_neutropenic_fever", self.nodes["topic_neutropenic_fever"], 0.95))
 
         # 2. Context-Augmented Traversal using Patient Molecular Context
         if patient_context:
@@ -272,12 +332,73 @@ class GraphRAGClinicalGuard:
             )
             citations.append("RANO 2.0 Update: Response Assessment in Neuro-Oncology (Lancet Oncology, 2023).")
 
+        # Check for Nutrition & Hydration
+        if any(n["id"] == "topic_nutrition" for n in subgraph):
+            node = self.kg.nodes["topic_nutrition"]
+            response_sections.append(
+                f"**Clinical Nutrition & Metabolic Support**:\n"
+                f"{node['guideline']}\n"
+                "Emphasize small, frequent nutrient-dense meals and consistent oral hydration throughout the day."
+            )
+            guidelines_applied.append("ESPEN / ASCO Guidelines on Clinical Nutrition in Cancer Care.")
+            citations.append("ASCO Practice Guideline: Nutrition and Physical Activity During Cancer Treatment.")
+
+        # Check for Cancer Fatigue & Somnolence
+        if any(n["id"] == "topic_fatigue" for n in subgraph):
+            node = self.kg.nodes["topic_fatigue"]
+            response_sections.append(
+                f"**Fatigue & Post-Radiation Recovery Protocol**:\n"
+                f"{node['guideline']}\n"
+                "Graduated pacing of activities and short daytime rest periods preserve physical function."
+            )
+            guidelines_applied.append("NCCN Clinical Practice Guidelines in Oncology: Cancer-Related Fatigue.")
+            citations.append("NCCN Guidelines for Cancer-Related Fatigue (Version 2026).")
+
+        # Check for Radiation Care & Scalp Health
+        if any(n["id"] == "topic_radiation_care" for n in subgraph):
+            node = self.kg.nodes["topic_radiation_care"]
+            response_sections.append(
+                f"**Cranial Radiation & Scalp Care Guidance**:\n"
+                f"{node['guideline']}\n"
+                "Protect irradiated scalp from direct sun exposure with soft cotton or silk headwear."
+            )
+            citations.append("Multinational Association of Supportive Care in Cancer (MASCC) Radiodermatitis Guidelines.")
+
+        # Check for Seizure Safety & Driving
+        if any(n["id"] == "topic_seizure_safety" for n in subgraph):
+            node = self.kg.nodes["topic_seizure_safety"]
+            response_sections.append(
+                f"**Seizure Precautions & Patient Safety Protocol**:\n"
+                f"{node['guideline']}"
+            )
+            citations.append("American Academy of Neurology: Consensus on Seizure Management in Brain Tumor Patients.")
+
+        # Check for Venous Thromboembolism (DVT/PE)
+        if any(n["id"] == "topic_thrombosis_dvt" for n in subgraph):
+            node = self.kg.nodes["topic_thrombosis_dvt"]
+            clinical_alerts.append("⚠️ VTE ALERT: Unilateral calf swelling, leg pain, or acute shortness of breath requires urgent medical evaluation.")
+            response_sections.append(
+                f"**Venous Thromboembolism Surveillance**:\n"
+                f"{node['guideline']}"
+            )
+            citations.append("ASCO Clinical Practice Guideline Update: Venous Thromboembolism Prophylaxis and Treatment in Cancer Patients.")
+
+        # Check for Neutropenic Fever
+        if any(n["id"] == "topic_neutropenic_fever" for n in subgraph):
+            node = self.kg.nodes["topic_neutropenic_fever"]
+            clinical_alerts.append("🚨 INFECTION ALERT: Any fever >= 100.4°F during active chemotherapy is a medical emergency.")
+            response_sections.append(
+                f"**Infection & Neutropenic Fever Protocol**:\n"
+                f"{node['guideline']}"
+            )
+            citations.append("IDSA / ASCO Guideline: Antimicrobial Prophylaxis and Outpatient Management of Fever and Neutropenia.")
+
         # Fallback if no specific section matched but nodes exist
         if not response_sections and subgraph:
             top_node = subgraph[0]["data"]
             response_sections.append(
                 f"**Clinical Knowledge Verification ({top_node.get('name', 'Neuro-Oncology')})**:\n"
-                f"{top_node.get('details', top_node.get('indication', top_node.get('clinical_impact', 'Relevant protocol verified.')))}\n"
+                f"{top_node.get('guideline', top_node.get('details', top_node.get('indication', top_node.get('clinical_impact', 'Relevant protocol verified.'))))}\n"
                 "Always verify any changes in medication scheduling with your attending oncologist."
             )
             citations.append("NCCN Neuro-Oncology Guidelines Version 2026.1.")

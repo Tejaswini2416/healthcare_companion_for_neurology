@@ -123,7 +123,7 @@ def render_longitudinal_trends():
             st.info("No symptoms logged in the tracking period.")
 
     with tab_adh:
-        st.markdown("##### 30-Day Running Medication Adherence Tracking")
+        st.markdown("##### 💊 30-Day Running Medication Schedule & Timing Tracker")
 
         total_m = len(meds)
         taken_m = sum(1 for m in meds if m.get("status") == "Taken")
@@ -132,7 +132,7 @@ def render_longitudinal_trends():
         col_m1, col_m2 = st.columns([1, 2])
         with col_m1:
             st.metric("Running 30-Day Adherence", f"{cur_pct}%")
-            if cur_pct >= 85:
+            if cur_pct >= 80:
                 st.success("Target therapeutic adherence (>=80%) achieved.")
             else:
                 st.warning("Adherence below optimal threshold. Care navigator alerted.")
@@ -144,3 +144,119 @@ def render_longitudinal_trends():
                 - **Doctor Overrides**: Oncology clinicians review adherence logs weekly during multidisciplinary rounds.
                 """
             )
+
+        st.markdown("---")
+        st.markdown("##### ⏰ Daily Medication Schedule & Exact Timing")
+        st.caption("Detailed breakdown of prescribed medicines, exact times to be taken, and patient instructions:")
+
+        schedule_items = [
+            {
+                "time": "🌅 08:00 AM (Morning)",
+                "name": "Levetiracetam (Keppra)",
+                "dose": "750 mg Oral Tablet",
+                "purpose": "Seizure Prophylaxis (Dose 1 of 2)",
+                "instructions": "Take with breakfast and a glass of water. Strict 12-hour spacing prevents breakthrough focal auras.",
+                "badge": "🟢 Regular Daily"
+            },
+            {
+                "time": "🌆 08:00 PM (Evening)",
+                "name": "Levetiracetam (Keppra)",
+                "dose": "750 mg Oral Tablet",
+                "purpose": "Seizure Prophylaxis (Dose 2 of 2)",
+                "instructions": "Take with or after dinner. Maintain consistent 12-hour gap from the morning dose.",
+                "badge": "🟢 Regular Daily"
+            },
+            {
+                "time": "🌙 08:30 PM (Night Pre-Med)",
+                "name": "Ondansetron (Zofran)",
+                "dose": "8 mg Oral Tablet",
+                "purpose": "Nausea & Emesis Prevention",
+                "instructions": "Take 30 to 60 minutes prior to chemotherapy to prevent acute emesis.",
+                "badge": "🟡 Nightly"
+            },
+            {
+                "time": "🛏️ 09:30 PM (Bedtime Chemotherapy)",
+                "name": "Temozolomide (Temodar)",
+                "dose": "150 mg/m² Oral Capsule",
+                "purpose": "Adjuvant Alkylating Chemotherapy",
+                "instructions": "Take on an empty stomach at least 2 hours after dinner with a full glass of water. Swallow whole; do not open.",
+                "badge": "🔴 Days 1-5 of 28-Day Cycle"
+            }
+        ]
+
+        for item in schedule_items:
+            st.markdown(
+                f"""
+                <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 12px 18px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; color: #0f766e; font-size: 1.05rem;">{item['time']}</span>
+                        <span style="font-size: 0.8rem; background: #f0fdf4; color: #166534; padding: 3px 10px; border-radius: 12px; font-weight: 600;">{item['badge']}</span>
+                    </div>
+                    <div style="margin-top: 6px; font-size: 0.95rem; color: #1e293b;">
+                        <strong>Medicine</strong>: <span style="color: #0f172a; font-weight: 700;">{item['name']}</span> &nbsp;•&nbsp; <strong>Dosage</strong>: <code>{item['dose']}</code>
+                    </div>
+                    <div style="margin-top: 4px; font-size: 0.85rem; color: #475569;">
+                        <strong>Purpose</strong>: {item['purpose']}<br>
+                        <strong>Instructions</strong>: <em>{item['instructions']}</em>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        st.markdown("---")
+        st.markdown("##### 🔔 Medicine Time Alert & Audio Beep Reminder")
+        st.caption("Audible reminder to alert the patient when it is time to take scheduled medication:")
+
+        # Web Audio API Beep Sound Generator
+        beep_html = """
+        <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 16px; text-align: center;">
+            <p style="font-size: 0.95rem; color: #1e293b; margin-bottom: 12px;">
+                🔊 <strong>Interactive Medication Time Alert Chime</strong>: Test or trigger the medicine time alarm beep sound:
+            </p>
+            <button id="btn-play-beep" style="background: #0f766e; color: white; border: none; padding: 10px 22px; font-size: 0.95rem; font-weight: 600; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                🔔 Test Medicine Reminder Beep (Play Sound)
+            </button>
+            <span id="beep-status" style="display: block; margin-top: 8px; font-size: 0.85rem; color: #64748b;">
+                Ready. Click button to test audible dose reminder tone.
+            </span>
+        </div>
+
+        <script>
+            function playHospitalMedBeep() {
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    const ctx = new AudioContext();
+                    
+                    const now = ctx.currentTime;
+                    // Play 3 distinct medical alert pulses (880 Hz, 1046 Hz, 1318 Hz)
+                    const tones = [880, 1046.5, 1318.5];
+                    tones.forEach((freq, index) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + index * 0.22);
+                        
+                        gain.gain.setValueAtTime(0, now + index * 0.22);
+                        gain.gain.linearRampToValueAtTime(0.35, now + index * 0.22 + 0.02);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.22 + 0.18);
+                        
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        
+                        osc.start(now + index * 0.22);
+                        osc.stop(now + index * 0.22 + 0.2);
+                    });
+
+                    document.getElementById('beep-status').innerText = '🔔 Alert Beep Played at ' + new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST';
+                } catch(e) {
+                    document.getElementById('beep-status').innerText = 'Audio playback error: ' + e;
+                }
+            }
+
+            document.getElementById('btn-play-beep').addEventListener('click', playHospitalMedBeep);
+        </script>
+        """
+        import streamlit.components.v1 as components
+        components.html(beep_html, height=135)

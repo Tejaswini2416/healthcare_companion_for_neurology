@@ -10,7 +10,7 @@ import os
 import json
 import uuid
 import numpy as np
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional, Union
 
 try:
@@ -743,7 +743,7 @@ class DatabaseClient:
                 "is_pseudoprogression": False,
                 "adherence_rate_pct": 100.0,
                 "latent_twin_vector": [round(float(x), 4) for x in np.random.uniform(-0.15, 0.15, 64)],
-                "alert_banner_text": "Treatment Adherence High: Stable post-surgical cavity volume. Monitor for any motor weakness or speech difficulty.",
+                "alert_banner_text": "Treatment Adherence High: Stable post-surgical cavity volume. Monitor for any muscle weakness or speech difficulty.",
                 "created_at": "2026-09-03T12:00:00Z"
             },
             # Patient 0044
@@ -811,16 +811,31 @@ class DatabaseClient:
 
     # --- Query & Retrieval APIs ---
 
+    def _sanitize_patient_record(self, p: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensures all standard keys exist on patient record to prevent KeyError."""
+        if not p:
+            return p
+        p.setdefault("diagnosis_date", p.get("created_at", "2026-05-14")[:10] if p.get("created_at") else "2026-05-14")
+        p.setdefault("next_visit_date", "2026-10-28")
+        p.setdefault("baseline_kps", 90)
+        p.setdefault("treatment_stage", "Post-Surgical / Adjuvant Stupp Maintenance")
+        p.setdefault("diagnosis_location", "Left Temporal Lobe")
+        p.setdefault("diagnosis_type", "High-Grade Glioma")
+        p.setdefault("oncologist_name", "Dr. Aris Thorne, MD (Neuro-Oncology)")
+        p.setdefault("nurse_name", "Sarah Jensen, RN (Care Navigator)")
+        return p
+
     def get_all_patients(self) -> List[Dict[str, Any]]:
         """Retrieves all registered patients."""
+        pts = self.storage["patients"]
         if self.is_connected_to_supabase:
             try:
                 res = self.supabase_client.table("patients").select("*").order("mrn").execute()
                 if res.data:
-                    return res.data
+                    pts = res.data
             except Exception:
                 pass
-        return self.storage["patients"]
+        return [self._sanitize_patient_record(dict(p)) for p in pts]
 
     def get_patient_by_mrn(self, mrn: str = "0042") -> Optional[Dict[str, Any]]:
         """Retrieves patient demographics by MRN."""
@@ -828,12 +843,12 @@ class DatabaseClient:
             try:
                 res = self.supabase_client.table("patients").select("*").eq("mrn", mrn).execute()
                 if res.data:
-                    return res.data[0]
+                    return self._sanitize_patient_record(dict(res.data[0]))
             except Exception:
                 pass
         for p in self.storage["patients"]:
-            if p["mrn"] == mrn:
-                return p
+            if str(p.get("mrn")) == str(mrn):
+                return self._sanitize_patient_record(p)
         return None
 
     def get_patient_by_id(self, patient_id: str) -> Optional[Dict[str, Any]]:
@@ -842,12 +857,12 @@ class DatabaseClient:
             try:
                 res = self.supabase_client.table("patients").select("*").eq("patient_id", patient_id).execute()
                 if res.data:
-                    return res.data[0]
+                    return self._sanitize_patient_record(dict(res.data[0]))
             except Exception:
                 pass
         for p in self.storage["patients"]:
             if p["patient_id"] == patient_id:
-                return p
+                return self._sanitize_patient_record(p)
         return None
 
     def get_patient_molecular(self, patient_id: str) -> Optional[Dict[str, Any]]:
@@ -1127,6 +1142,244 @@ class DatabaseClient:
 
         self.storage["twin_timeline"].insert(0, timeline_data)
         return timeline_data
+
+    def get_connection_status(self) -> Dict[str, Any]:
+        """Returns connection health and telemetry counts."""
+        counts = {
+            "patients": len(self.storage.get("patients", [])),
+            "mri_scans": len(self.storage.get("mri_scans", [])),
+            "symptom_logs": len(self.storage.get("symptom_logs", [])),
+            "clinical_reports": len(self.storage.get("clinical_reports", [])),
+            "medications": len(self.storage.get("medications", [])),
+            "molecular_profiles": len(self.storage.get("molecular_profiles", [])),
+            "twin_timeline": len(self.storage.get("twin_timeline", [])),
+        }
+        return {
+            "is_connected": self.is_connected_to_supabase,
+            "url": self.url if self.is_connected_to_supabase else "",
+            "raw_url": self.url,
+            "counts": counts,
+            "connection_error": self.connection_error,
+            "last_sync_time": self.last_sync_time
+        }
+
+    def disconnect_from_supabase(self):
+        """Disconnects from remote Supabase and falls back to local storage."""
+        self.is_connected_to_supabase = False
+        self.supabase_client = None
+        self.connection_error = None
+
+    def seed_remote_supabase(self) -> Dict[str, Any]:
+        """Seeds remote Supabase PostgreSQL with local cohort records."""
+        if not self.is_connected_to_supabase or not self.supabase_client:
+            return {"success": False, "seeded_tables": [], "errors": ["Not connected to Supabase."]}
+        seeded = []
+        errors = []
+        for table_name in ["patients", "molecular_profiles", "mri_scans", "clinical_reports", "medications", "symptom_logs", "twin_timeline"]:
+            records = self.storage.get(table_name, [])
+            if records:
+                try:
+                    self.supabase_client.table(table_name).upsert(records).execute()
+                    seeded.append(f"{table_name} ({len(records)} records)")
+                except Exception as e:
+                    errors.append(f"{table_name}: {e}")
+        return {"success": len(errors) == 0, "seeded_tables": seeded, "errors": errors}
+
+    def create_patient(self, patient_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Registers a new patient, generating MRN if needed, creating molecular profile,
+        baseline scan, initial prescriptions, and digital twin state.
+        """
+        # Determine next available MRN if not provided
+        mrn = str(patient_data.get("mrn", "")).strip()
+        if not mrn:
+            existing_mrns = []
+            for p in self.storage.get("patients", []):
+                m_str = str(p.get("mrn", ""))
+                if m_str.isdigit():
+                    existing_mrns.append(int(m_str))
+            next_mrn_int = (max(existing_mrns) + 1) if existing_mrns else 45
+            mrn = f"{next_mrn_int:04d}"
+
+        patient_id = patient_data.get("patient_id") or str(uuid.uuid4())
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        diagnosis_date = str(patient_data.get("diagnosis_date") or today_str)
+        next_visit_date = str(patient_data.get("next_visit_date") or (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d"))
+
+        full_record = {
+            "patient_id": patient_id,
+            "mrn": mrn,
+            "full_name": patient_data.get("full_name", f"Patient {mrn}"),
+            "age": int(patient_data.get("age", 45)),
+            "gender": patient_data.get("gender", "Female"),
+            "diagnosis_type": patient_data.get("diagnosis_type", "Glioblastoma (WHO Grade 4)"),
+            "diagnosis_location": patient_data.get("diagnosis_location", "Left temporal lobe"),
+            "diagnosis_date": diagnosis_date,
+            "next_visit_date": next_visit_date,
+            "baseline_kps": int(patient_data.get("baseline_kps", 90)),
+            "treatment_stage": patient_data.get("treatment_stage", "Post-Surgical / Adjuvant Stupp Maintenance"),
+            "oncologist_name": patient_data.get("oncologist_name", "Dr. Aris Thorne, MD"),
+            "nurse_name": patient_data.get("nurse_name", "Sarah Jensen, RN"),
+            "share_research_consent": bool(patient_data.get("share_research_consent", True)),
+            "created_at": now_iso,
+            "phone": patient_data.get("phone", "+1 (555) 234-5678"),
+            "email": patient_data.get("email", f"patient.{mrn}@healthmail.org"),
+            "pin": str(patient_data.get("pin", "1234"))
+        }
+
+        # 1. Insert patient
+        if self.is_connected_to_supabase and self.supabase_client:
+            try:
+                self.supabase_client.table("patients").insert(full_record).execute()
+            except Exception as e:
+                print(f"[DatabaseClient] Supabase patients insert error: {e}")
+
+        # Check if already in storage to avoid duplicate
+        idx = next((i for i, p in enumerate(self.storage["patients"]) if p["mrn"] == mrn), None)
+        if idx is not None:
+            self.storage["patients"][idx] = full_record
+        else:
+            self.storage["patients"].append(full_record)
+
+        # 2. Initialize Molecular Profile
+        mol_record = {
+            "profile_id": str(uuid.uuid4()),
+            "patient_id": patient_id,
+            "idh_status": patient_data.get("idh_status", "Mutant"),
+            "mgmt_methylated": bool(patient_data.get("mgmt_methylated", True)),
+            "codeletion_1p19q": bool(patient_data.get("codeletion_1p19q", False)),
+            "tert_promoter_mutant": True,
+            "egfr_amplified": False,
+            "cdkn2a_deletion": False,
+            "created_at": now_iso
+        }
+        if self.is_connected_to_supabase and self.supabase_client:
+            try:
+                self.supabase_client.table("molecular_profiles").insert(mol_record).execute()
+            except Exception as e:
+                print(f"[DatabaseClient] Supabase molecular_profiles insert error: {e}")
+        self.storage["molecular_profiles"].append(mol_record)
+
+        # 3. Initialize Baseline Scan
+        init_scan = {
+            "scan_id": str(uuid.uuid4()),
+            "patient_id": patient_id,
+            "scan_date": today_str,
+            "wt_vol_cm3": float(patient_data.get("initial_wt_vol", 12.8)),
+            "tc_vol_cm3": float(patient_data.get("initial_tc_vol", 6.5)),
+            "et_vol_cm3": float(patient_data.get("initial_et_vol", 3.2)),
+            "edema_vol_cm3": float(patient_data.get("initial_edema_vol", 5.4)),
+            "dice_score": 0.9120,
+            "estimated_rcbv": 1.45,
+            "mask_storage_path": f"scans/{mrn}/baseline_seg.nii.gz",
+            "created_at": now_iso
+        }
+        self.storage["mri_scans"].append(init_scan)
+
+        # 4. Initialize Baseline Clinical Report for Patient
+        init_report = {
+            "report_id": str(uuid.uuid4()),
+            "patient_id": patient_id,
+            "scan_id": init_scan["scan_id"],
+            "uploaded_by": "Clinician",
+            "report_date": today_str,
+            "raw_text": (
+                f"EXAMINATION: Baseline multi-parametric MRI examination for {full_record['full_name']} (MRN: {mrn}). "
+                f"Evaluation of {full_record['diagnosis_type']} located in {full_record['diagnosis_location']}. "
+                f"Whole tumor volume estimated at {init_scan['wt_vol_cm3']:.2f} cm3 with enhancing core measuring {init_scan['et_vol_cm3']:.2f} cm3. "
+                f"Surrounding FLAIR hyperintensity consistent with perilesional edema stable at {init_scan['edema_vol_cm3']:.2f} cm3. "
+                f"No acute midline shift. DSC perfusion rCBV estimated at {init_scan['estimated_rcbv']:.2f}. "
+                f"IMPRESSION: Initial baseline imaging profile established. Follow-up scheduled for {next_visit_date}."
+            ),
+            "parsed_entities": {
+                "tumor_location": full_record["diagnosis_location"],
+                "enhancing_dimensions_cm": "1.8 x 2.2",
+                "edema_status": f"Stable ({init_scan['edema_vol_cm3']:.2f} cm3)",
+                "mass_effect": "Mild / Absent",
+                "midline_shift": "None (0 mm)",
+                "rcbv": init_scan["estimated_rcbv"],
+                "impression": f"Baseline profile for {full_record['diagnosis_type']}"
+            },
+            "plain_language_summary": (
+                f"Welcome to your Care Companion, {full_record['full_name']}! Think of your brain like a wonderful control center. "
+                f"Your initial scan gives your care team an exact map of your brain so they can protect it. "
+                f"The spot in your {full_record['diagnosis_location']} is clearly mapped, and your medications will act like superhero guards "
+                f"to keep healthy areas safe. There is no dangerous pressure, and your next checkup is set for {next_visit_date}."
+            ),
+            "severity_tag": "Moderate",
+            "created_at": now_iso
+        }
+        self.storage["clinical_reports"].append(init_report)
+
+        # 5. Initialize Baseline Medications with Explicit Scheduled Times
+        base_meds = [
+            {
+                "med_id": str(uuid.uuid4()),
+                "patient_id": patient_id,
+                "med_name": "Levetiracetam (Keppra)",
+                "dosage": patient_data.get("keppra_dosage", "750 mg Oral Tablet"),
+                "frequency": "Twice Daily (every 12 hours)",
+                "scheduled_time": "08:00 AM & 08:00 PM",
+                "instructions": "Seizure prevention. Take consistently every 12 hours with water. Do not skip doses.",
+                "prescribed_by": full_record["oncologist_name"],
+                "status": "Scheduled",
+                "adherence_notes": "Therapeutic seizure prophylaxis",
+                "last_updated_by": "Doctor",
+                "updated_at": now_iso
+            },
+            {
+                "med_id": str(uuid.uuid4()),
+                "patient_id": patient_id,
+                "med_name": "Temozolomide (Temodar)",
+                "dosage": patient_data.get("tmz_dosage", "150 mg/m² Oral Capsule"),
+                "frequency": "Nightly at bedtime (Days 1-5 of 28-day cycle)",
+                "scheduled_time": "09:30 PM",
+                "instructions": "Chemotherapy. Take on an empty stomach at least 2 hours after dinner with a full glass of water. Premedicate with Ondansetron 30 minutes prior.",
+                "prescribed_by": full_record["oncologist_name"],
+                "status": "Scheduled",
+                "adherence_notes": "Adjuvant Stupp cycle active",
+                "last_updated_by": "Doctor",
+                "updated_at": now_iso
+            },
+            {
+                "med_id": str(uuid.uuid4()),
+                "patient_id": patient_id,
+                "med_name": "Ondansetron (Zofran)",
+                "dosage": "8 mg Oral Tablet",
+                "frequency": "Nightly (30 min prior to Temozolomide)",
+                "scheduled_time": "08:30 PM",
+                "instructions": "Antiemetic / Nausea prevention. Take 30 to 60 minutes before evening chemotherapy capsule.",
+                "prescribed_by": full_record["oncologist_name"],
+                "status": "Scheduled",
+                "adherence_notes": "Antiemetic coverage",
+                "last_updated_by": "Doctor",
+                "updated_at": now_iso
+            }
+        ]
+        for bm in base_meds:
+            self.storage["medications"].append(bm)
+
+        # 6. Initialize Digital Twin Timeline
+        init_timeline = {
+            "timeline_id": str(uuid.uuid4()),
+            "patient_id": patient_id,
+            "evaluation_date": today_str,
+            "progression_risk_score": 0.2450,
+            "triage_category": "Mild",
+            "rano_category": "PsP",
+            "pseudoprogression_risk": 0.8200,
+            "is_pseudoprogression": True,
+            "adherence_rate_pct": 100.0,
+            "latent_twin_vector": [0.0] * 64,
+            "alert_banner_text": f"New Patient Digital Twin initialized for {full_record['full_name']} (MRN: {mrn}). Baseline care plan active.",
+            "created_at": now_iso
+        }
+        self.storage["twin_timeline"].insert(0, init_timeline)
+
+        return full_record
+
 
 
 # Global Singleton Client

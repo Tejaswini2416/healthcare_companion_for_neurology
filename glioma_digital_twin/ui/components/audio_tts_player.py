@@ -123,14 +123,14 @@ def render_audio_tts_player(
                 <span style="font-size: 22px;">🎧</span>
                 <div>
                     <div class="tts-title">{label}</div>
-                    <div class="tts-subtitle">Audio speech synthesis for visual accessibility</div>
+                    <div class="tts-subtitle">Friendly voice over story for young patients (explained for a 10-year-old kid)</div>
                 </div>
             </div>
 
             <div class="btn-group">
                 <select class="speed-select" id="speech-speed" title="Playback Speed">
-                    <option value="0.85">0.85x Gentle</option>
-                    <option value="1.0" selected>1.0x Normal</option>
+                    <option value="0.9" selected>0.9x Story Cadence</option>
+                    <option value="1.0">1.0x Normal</option>
                     <option value="1.15">1.15x Brisk</option>
                 </select>
 
@@ -172,6 +172,7 @@ def render_audio_tts_player(
                 utterance = new SpeechSynthesisUtterance(textToSpeak);
                 utterance.lang = langCode;
                 utterance.rate = parseFloat(speedSelect.value);
+                utterance.pitch = 1.05; // Gentle, friendly storytelling pitch
 
                 // Voice resolution
                 const voices = synth.getVoices();

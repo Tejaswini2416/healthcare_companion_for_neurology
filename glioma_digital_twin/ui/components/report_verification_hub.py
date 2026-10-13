@@ -17,8 +17,9 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
 from ...utils.supabase_client import get_database_client
-from ...models.clinical_nlp import ClinicalNLPEngine
+from ...models.clinical_nlp import ClinicalNLPEngine, extract_text_from_file
 from ...models.triage_engine import RANO2TriageEngine
+from .audio_tts_player import render_audio_tts_player
 
 
 SAMPLE_REPORTS_LIBRARY = [
@@ -165,23 +166,34 @@ IMPRESSION:
 
 
 def render_report_verification_hub(
-    patient: Dict[str, Any],
-    db: Any,
-    latest_scan: Dict[str, Any],
-    molecular: Dict[str, Any],
-    current_doc: Optional[Dict[str, Any]] = None
+    patient: Optional[Dict[str, Any]] = None,
+    db: Any = None,
+    latest_scan: Optional[Dict[str, Any]] = None,
+    molecular: Optional[Dict[str, Any]] = None,
+    current_doc: Optional[Dict[str, Any]] = None,
+    is_patient_mode: bool = True
 ):
     """
-    Renders the Clinical Report Upload & AI Verification Hub inside Clinician Workstation.
+    Renders the Clinical Report Upload & AI Verification Hub in Patient Portal.
     """
+    if db is None:
+        db = get_database_client()
+    active_mrn = st.session_state.get("active_patient_mrn", "0042")
+    if patient is None:
+        patient = db.get_patient_by_mrn(active_mrn) or db.get_patient_by_mrn("0042")
     patient_id = patient["patient_id"]
     active_mrn = patient["mrn"]
+    if latest_scan is None:
+        scans = db.get_patient_scans(patient_id)
+        latest_scan = scans[-1] if scans else {}
+    if molecular is None:
+        molecular = db.get_patient_molecular(patient_id) or {}
 
-    st.markdown("##### 📄 Clinical Radiology Report Ingestion & Verification Hub")
+    st.subheader("📄 Upload & Verify Clinical Reports")
     st.markdown(
         "Upload clinical radiology reports (.txt, .md, .pdf) or select pre-configured clinical sample reports. "
         "Run the **Bio_ClinicalBERT NLP Engine** and **RANO 2.0 Triage Classifier** to extract diagnostic entities, "
-        "verify perfusion rCBV thresholds, generate 6th-grade empathetic patient summaries, and commit validated reports to the Patient Digital Twin."
+        "inspect 10-year-old child story translations with audio voice over, and verify validated reports into your Digital Twin."
     )
 
     # =========================================================================
@@ -252,21 +264,27 @@ def render_report_verification_hub(
 
     with col_up:
         uploaded_file = st.file_uploader(
-            "📂 Upload External Clinical Report File (.txt, .md, .pdf, .json):",
-            type=["txt", "md", "json", "pdf"],
+            "📂 Upload External Clinical Report File (.txt, .md, .pdf, .docx, .json):",
+            type=["txt", "md", "json", "pdf", "docx"],
             key="clinician_report_hub_file_uploader",
-            help="Drop any clinical notes, consultation reports, or one of the downloaded sample files here."
+            help="Drop any clinical notes, consultation reports, PDF scans, or Word files here."
         )
 
         if uploaded_file is not None:
             try:
-                raw_bytes = uploaded_file.read()
-                # Attempt standard utf-8 decoding
-                file_text = raw_bytes.decode("utf-8", errors="replace")
+                file_text = extract_text_from_file(uploaded_file)
                 if file_text.strip():
-                    st.session_state.staged_report_text = file_text
-                    st.session_state.staged_report_source = f"Uploaded File: {uploaded_file.name}"
-                    st.toast(f"✅ Staged {uploaded_file.name} successfully!")
+                    is_valid, val_msg = validate_radiology_or_pathology_report(file_text)
+                    if not is_valid:
+                        st.error(val_msg)
+                        st.session_state.report_upload_rejected = True
+                        st.session_state.report_upload_rejected_msg = val_msg
+                    else:
+                        st.session_state.staged_report_text = file_text
+                        st.session_state.staged_report_source = f"Uploaded File: {uploaded_file.name}"
+                        st.session_state.report_upload_rejected = False
+                        st.toast(f"✅ Verified & staged {uploaded_file.name} successfully!", icon="📄")
+                        st.success(f"✅ {val_msg}")
             except Exception as e:
                 st.error(f"Error reading uploaded file: {e}")
 
@@ -282,6 +300,62 @@ def render_report_verification_hub(
             """,
             unsafe_allow_html=True
         )
+
+def validate_radiology_or_pathology_report(text: str) -> tuple[bool, str]:
+    """
+    Validates whether the provided text is an authentic clinical Radiology or Pathology report.
+    Rejects non-medical documents, certificates, coursework, invoices, resumes, etc.
+    """
+    if not text or len(text.strip()) < 30:
+        return False, "Document is empty or too short to be a clinical report."
+
+    t_lower = text.lower()
+
+    # Reject obvious non-medical documents (e.g. certificates, courses, invoices, resumes)
+    non_med_indicators = [
+        "certificate of completion", "certificate is awarded to", "course", "feature engineering",
+        "successfully completing the course", "verify the qr code", "invoice", "receipt",
+        "curriculum vitae", "resume", "homework assignment", "grade card", "diploma",
+        "awarded to", "completion of the course"
+    ]
+    for non_med in non_med_indicators:
+        if non_med in t_lower:
+            return False, (
+                f"🚫 **Document Rejected: Non-Medical Document Detected**\n\n"
+                f"The uploaded document appears to be non-clinical content (*\"{non_med}\"*). "
+                f"**Acceptance is granted ONLY for authentic Radiology** (Brain MRI, CT, PET) "
+                f"or **Pathology** (Histopathology, Molecular Biopsy) reports."
+            )
+
+    # Required clinical radiology or pathology terminology
+    radiology_terms = [
+        "mri", "magnetic resonance", "brain mri", "ct scan", "pet", "flair", "t1", "t2",
+        "t1ce", "contrast", "gadolinium", "perfusion", "rcbv", "axial", "coronal", "sagittal",
+        "parenchyma", "resection", "cavity", "mass effect", "midline shift", "edema",
+        "vasogenic", "diffusion", "dwi", "adc", "radiology", "radiologist", "examination"
+    ]
+    pathology_terms = [
+        "pathology", "histopathology", "biopsy", "specimen", "immunohistochemistry", "idh",
+        "mgmt", "codeletion", "1p/19q", "astrocytoma", "glioma", "glioblastoma", "oligodendroglioma",
+        "who grade", "grade 4", "grade 3", "ki-67", "necrosis", "mitotic", "neoplasm",
+        "tumor", "lesion", "findings", "impression"
+    ]
+
+    matched_rad = [term for term in radiology_terms if term in t_lower]
+    matched_path = [term for term in pathology_terms if term in t_lower]
+    total_matches = len(set(matched_rad + matched_path))
+
+    if total_matches < 3:
+        return False, (
+            "🚫 **Document Rejected: Unrecognized Report Format**\n\n"
+            "The uploaded document does not contain sufficient clinical Radiology or Pathology findings "
+            "(such as MRI sequences, tumor volumetrics, histological grading, or diagnostic impressions). "
+            "Please upload an authentic Brain MRI radiology report or surgical pathology report."
+        )
+
+    doc_type = "Radiology" if len(matched_rad) >= len(matched_path) else "Pathology"
+    return True, f"Authentic Clinical {doc_type} Report verified."
+
 
     # Live Staged Text Editor
     staged_text = st.text_area(
@@ -311,7 +385,7 @@ def render_report_verification_hub(
     st.markdown("##### 2. Execute AI Extraction & Diagnostic Triage Pipeline")
 
     btn_analyze = st.button(
-        "🚀 Run Bio_ClinicalBERT Extraction & Verification Engine",
+        "🚀 Run Uploaded Reports",
         type="primary",
         use_container_width=True
     )
@@ -320,9 +394,13 @@ def render_report_verification_hub(
         if not staged_text.strip():
             st.error("Please stage or upload a clinical report first.")
         else:
-            with st.status("Executing Bio_ClinicalBERT NLP & RANO 2.0 Triage Pipeline...", expanded=True) as status:
-                st.write("1. Initializing Bio_ClinicalBERT diagnostic semantic parser...")
-                nlp_engine = ClinicalNLPEngine(offline=True)
+            is_valid, v_msg = validate_radiology_or_pathology_report(staged_text)
+            if not is_valid:
+                st.error(v_msg)
+            else:
+                with st.status("Executing Bio_ClinicalBERT NLP & RANO 2.0 Triage Pipeline...", expanded=True) as status:
+                    st.write("1. Initializing Bio_ClinicalBERT diagnostic semantic parser...")
+                    nlp_engine = ClinicalNLPEngine(offline=True)
 
                 st.write("2. Extracting structured clinical entities (tumor location, margins, rCBV perfusion, edema, midline shift)...")
                 nlp_res = nlp_engine.analyze_report(staged_text)
@@ -419,10 +497,10 @@ def render_report_verification_hub(
             st.dataframe(ent_rows, use_container_width=True)
 
         with col_plain:
-            st.markdown("###### 🌟 Empathetic Plain-Language Translation (6th-Grade Reading Level)")
+            st.markdown("###### 💚 Empathetic Plain-Language Translation (Explained Simply, 10-Year-Old Reading Level)")
             st.markdown(
                 f"""
-                <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 1rem; font-size: 0.92rem; line-height: 1.5; color: #0f172a;">
+                <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 1rem; font-size: 0.95rem; line-height: 1.5; color: #0f172a;">
                     <p style="margin: 0;">
                         {nlp_data['plain_language_summary']}
                     </p>
@@ -430,7 +508,13 @@ def render_report_verification_hub(
                 """,
                 unsafe_allow_html=True
             )
-            st.caption("💡 Generated automatically for patient understanding and portal transparency.")
+            render_audio_tts_player(
+                text_to_speak=nlp_data['plain_language_summary'],
+                language_code="en-US",
+                label="🔊 Listen to 10-Year-Old Story Voice Over",
+                height=115
+            )
+            st.caption("💡 Spoken aloud in super simple, comforting storytelling language designed for a 10-year-old child.")
 
         # Semantic Embedding Vector Representation
         with st.expander("🧬 View 11-Dimensional L2-Normalized Semantic Feature Vector", expanded=False):
@@ -438,34 +522,33 @@ def render_report_verification_hub(
             st.code(str(nlp_data.get("embedding_11d", [])), language="json")
 
         # =========================================================================
-        # STEP 5: PHYSICIAN ATTESTATION & DIGITAL TWIN COMMIT
+        # STEP 5: VERIFICATION ATTESTATION & DIGITAL TWIN COMMIT
         # =========================================================================
-        st.markdown("##### 4. Attending Physician Verification & Electronic Sign-Off")
+        st.markdown("##### 4. Verify & Commit Report to Patient Digital Twin")
 
         doc_name = current_doc["full_name"] if current_doc else patient["oncologist_name"]
-        doc_license = current_doc.get("license_no", "Institutional Board Certified") if current_doc else "MD Neuro-Oncology"
+        uploader_label = f"Patient ({patient['full_name']})" if is_patient_mode else f"Doctor (Verified: {doc_name})"
 
-        with st.form("physician_report_verification_form"):
+        with st.form("report_verification_commit_form"):
             c_v1, c_v2 = st.columns(2)
             with c_v1:
-                st.text_input("Verifying Attending Physician", value=doc_name, disabled=True)
+                st.text_input("Active Patient", value=f"{patient['full_name']} (MRN: `{active_mrn}`)", disabled=True)
             with c_v2:
-                st.text_input("Physician Credentials / License", value=doc_license, disabled=True)
+                st.text_input("Attending Neuro-Oncologist", value=patient.get("oncologist_name", "Dr. Aris Thorne, MD"), disabled=True)
 
-            physician_notes = st.text_area(
-                "Attending Physician Clinical Notes & Action Plan:",
-                value=f"Verified diagnostic NLP parsing. Clinical findings consistent with {rano_cat} category. Patient to continue scheduled therapy.",
+            verification_notes = st.text_area(
+                "Clinical Notes & Patient Observations:",
+                value=f"Verified diagnostic NLP parsing. Clinical findings consistent with {rano_cat} category. Digital Twin state synchronized.",
                 height=80
             )
 
             attest_box = st.checkbox(
-                "☑️ I, the attending physician, verify that these diagnostic findings, NLP entity extractions, and triage assessments "
-                "have been reviewed for accuracy and I authorize synchronizing this report with the Patient Digital Twin.",
+                "☑️ I confirm and verify that these diagnostic findings and 10-year-old story translation have been reviewed and should be synchronized with the Patient Digital Twin.",
                 value=True
             )
 
             submit_commit = st.form_submit_button(
-                "✅ Authorize & Commit Verified Report to Patient Digital Twin",
+                "✅ Verify & Commit Report to Patient Digital Twin",
                 type="primary",
                 use_container_width=True
             )
@@ -478,7 +561,7 @@ def render_report_verification_hub(
                     today_str = datetime.now().strftime("%Y-%m-%d")
 
                     # Generate verification hash
-                    hash_input = f"{new_rep_id}-{patient_id}-{doc_name}-{today_str}"
+                    hash_input = f"{new_rep_id}-{patient_id}-{uploader_label}-{today_str}"
                     verify_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:16].upper()
 
                     # Insert report into database
@@ -486,18 +569,18 @@ def render_report_verification_hub(
                         "report_id": new_rep_id,
                         "patient_id": patient_id,
                         "scan_id": latest_scan.get("scan_id"),
-                        "uploaded_by": f"Doctor (Verified: {doc_name})",
+                        "uploaded_by": uploader_label,
                         "report_date": today_str,
                         "raw_text": res["raw_text"],
                         "parsed_entities": entities,
                         "plain_language_summary": nlp_data["plain_language_summary"],
                         "severity_tag": severity_tag,
                         "verification_hash": verify_hash,
-                        "physician_notes": physician_notes
+                        "physician_notes": verification_notes
                     })
 
                     # Update twin timeline
-                    twin_alert = f"Verified {today_str}: [{rano_cat}] category. {physician_notes}"
+                    twin_alert = f"Verified {today_str}: [{rano_cat}] category. {verification_notes}"
                     db.update_twin_timeline({
                         "patient_id": patient_id,
                         "evaluation_date": today_str,
@@ -513,7 +596,7 @@ def render_report_verification_hub(
                     st.session_state.last_committed_report_info = {
                         "report_id": new_rep_id,
                         "verify_hash": verify_hash,
-                        "doc_name": doc_name,
+                        "doc_name": uploader_label,
                         "date": today_str,
                         "patient": patient["full_name"]
                     }

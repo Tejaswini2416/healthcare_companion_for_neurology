@@ -17,9 +17,11 @@ from typing import Dict, Any, Optional
 
 from ...utils.supabase_client import get_database_client
 from ...models.mri_segmenter import SyntheticBraTSGenerator
-from ...models.clinical_nlp import ClinicalNLPEngine
-from .volume_viewer_3d import render_3d_volume_viewer
+from ...models.clinical_nlp import ClinicalNLPEngine, extract_text_from_file
+from ...utils.pdf_generator import generate_patient_clinical_pdf
+from .brain_3d_viewer import render_3d_brain_viewer_panel
 from .audio_tts_player import render_audio_tts_player
+from .report_verification_hub import validate_radiology_or_pathology_report
 
 
 def render_report_viewer():
@@ -43,8 +45,24 @@ def render_report_viewer():
         "Understand your imaging results without confusing clinical jargon."
     )
 
-    tab_inspect, tab_upload = st.tabs([
+    if not scans:
+        st.warning("No imaging scans recorded for this patient yet.")
+        return
+
+    # Select scan date to inspect
+    scan_options = {f"{s['scan_date']} (WT: {s['wt_vol_cm3']:.1f} cm³, Dice: {s['dice_score']:.3f})": s for s in scans}
+    selected_label = st.selectbox(
+        "Select MRI Scan Evaluation Date:",
+        options=list(scan_options.keys()),
+        index=len(scan_options)-1,
+        key="report_viewer_scan_date_sel"
+    )
+    current_scan = scan_options[selected_label]
+    matching_report = next((r for r in reports if r.get("scan_id") == current_scan.get("scan_id")), reports[0] if reports else None)
+
+    tab_inspect, tab_3d_brain, tab_upload = st.tabs([
         "🔍 Inspect Scans & Translated Reports",
+        "🧠 3D Brain & Tumor Localization",
         "📤 Patient Document & Report Upload"
     ])
 
@@ -52,20 +70,6 @@ def render_report_viewer():
     # TAB 1: Inspect Scans & Translated Reports
     # =========================================================================
     with tab_inspect:
-        if not scans:
-            st.warning("No imaging scans recorded for this patient yet.")
-            return
-
-        # Select scan date to inspect
-        scan_options = {f"{s['scan_date']} (WT: {s['wt_vol_cm3']:.1f} cm³, Dice: {s['dice_score']:.3f})": s for s in scans}
-        selected_label = st.selectbox(
-            "Select MRI Scan Evaluation Date:",
-            options=list(scan_options.keys()),
-            index=len(scan_options)-1
-        )
-        current_scan = scan_options[selected_label]
-        matching_report = next((r for r in reports if r.get("scan_id") == current_scan.get("scan_id")), reports[0] if reports else None)
-
         st.write("")
 
         # Top Volumetric Metric Cards
@@ -89,84 +93,92 @@ def render_report_viewer():
         col_img, col_report = st.columns([1.1, 0.9])
 
         with col_img:
-            st.markdown("##### 🧠 3D MRI Volume Reconstruction & Multi-Sequence Slices")
+            st.markdown("##### 🧠 MRI Multi-Sequence Slices & Pathology Overlays")
 
-            tab_3d, tab_2d = st.tabs([
-                "🌐 Interactive 3D WebGL Volume",
-                "🔬 2D Multi-Sequence Slices"
-            ])
-
-            with tab_3d:
-                render_3d_volume_viewer(
-                    scan_data=current_scan,
-                    patient_name=patient['full_name'],
-                    mrn=patient['mrn'],
-                    height=480
+            # Dynamic MRI volumetric slice cache keyed by patient and scan ID
+            scan_key_id = current_scan.get("scan_id", current_scan.get("scan_date", "latest"))
+            cache_key = f"cached_mri_{patient['mrn']}_{scan_key_id}"
+            if cache_key not in st.session_state:
+                wt_v = float(current_scan.get("wt_vol_cm3", 14.6))
+                tc_v = float(current_scan.get("tc_vol_cm3", 5.0))
+                et_v = float(current_scan.get("et_vol_cm3", 3.8))
+                wt_radius = min(22.0, max(6.0, float(np.cbrt(wt_v * 5.5))))
+                tc_radius = min(17.0, max(4.0, float(np.cbrt(tc_v * 4.8))))
+                et_thickness = min(5.0, max(1.8, et_v * 0.85))
+                vol_4ch, seg_gt = SyntheticBraTSGenerator.generate_synthetic_volume(
+                    shape=(64, 64, 48),
+                    wt_radius=wt_radius,
+                    tc_radius=tc_radius,
+                    et_thickness=et_thickness
                 )
+                st.session_state[cache_key] = (vol_4ch, seg_gt)
 
-            with tab_2d:
-                # Cache or generate 3D volume for slice viewing
-                cache_key = f"cached_mri_{patient['mrn']}"
-                if cache_key not in st.session_state:
-                    vol_4ch, seg_gt = SyntheticBraTSGenerator.generate_synthetic_volume(
-                        shape=(64, 64, 48),
-                        wt_radius=13.0,
-                        tc_radius=8.0,
-                        et_thickness=3.6
-                    )
-                    st.session_state[cache_key] = (vol_4ch, seg_gt)
+            mri_vol, seg_gt = st.session_state[cache_key]
 
-                mri_vol, seg_gt = st.session_state[cache_key]
+            c_seq, c_mask, c_slice = st.columns([1, 1, 1])
+            with c_seq:
+                seq_choice = st.selectbox("Sequence", ["T1ce (Contrast)", "FLAIR (Edema)", "T2", "T1"], index=0)
+            with c_mask:
+                mask_choice = st.selectbox("Overlay", ["Sub-Regions (Color)", "Whole Tumor (WT)", "Tumor Core (TC)", "None"], index=0)
+            with c_slice:
+                slice_idx = st.slider("Axial Slice Z Index", 10, 40, 24)
 
-                c_seq, c_mask, c_slice = st.columns([1, 1, 1])
-                with c_seq:
-                    seq_choice = st.selectbox("Sequence", ["T1ce (Contrast)", "FLAIR (Edema)", "T2", "T1"], index=0)
-                with c_mask:
-                    mask_choice = st.selectbox("Overlay", ["Sub-Regions (Color)", "Whole Tumor (WT)", "Tumor Core (TC)", "None"], index=0)
-                with c_slice:
-                    slice_idx = st.slider("Axial Slice Z Index", 10, 40, 24)
+            # Map sequence to channel
+            seq_idx = {"T1": 0, "T1ce (Contrast)": 1, "T2": 2, "FLAIR (Edema)": 3}[seq_choice]
+            base_slice = mri_vol[seq_idx, :, :, slice_idx]
 
-                # Map sequence to channel
-                seq_idx = {"T1": 0, "T1ce (Contrast)": 1, "T2": 2, "FLAIR (Edema)": 3}[seq_choice]
-                base_slice = mri_vol[seq_idx, :, :, slice_idx]
+            # Sub-region masks
+            ncr_slice = seg_gt[0, :, :, slice_idx]
+            ed_slice = seg_gt[1, :, :, slice_idx]
+            et_slice = seg_gt[2, :, :, slice_idx]
 
-                # Sub-region masks
-                ncr_slice = seg_gt[0, :, :, slice_idx]
-                ed_slice = seg_gt[1, :, :, slice_idx]
-                et_slice = seg_gt[2, :, :, slice_idx]
+            # Matplotlib visualization
+            fig, ax = plt.subplots(figsize=(5.5, 5.5), facecolor="#0f172a")
+            ax.imshow(base_slice, cmap="gray", origin="lower", vmin=0, vmax=1.0)
 
-                # Matplotlib visualization
-                fig, ax = plt.subplots(figsize=(5.5, 5.5), facecolor="#0f172a")
-                ax.imshow(base_slice, cmap="gray", origin="lower", vmin=0, vmax=1.0)
+            if mask_choice == "Sub-Regions (Color)":
+                overlay = np.zeros((*base_slice.shape, 4), dtype=np.float32)
+                overlay[ncr_slice > 0] = [0.9, 0.1, 0.1, 0.55] # Red: Necrosis
+                overlay[ed_slice > 0]  = [0.1, 0.8, 0.2, 0.40] # Green: Edema
+                overlay[et_slice > 0]  = [0.0, 0.8, 0.9, 0.65] # Cyan: Enhancing
+                ax.imshow(overlay, origin="lower")
+            elif mask_choice == "Whole Tumor (WT)":
+                wt_slice = np.clip(ncr_slice | ed_slice | et_slice, 0, 1)
+                overlay = np.zeros((*base_slice.shape, 4), dtype=np.float32)
+                overlay[wt_slice > 0] = [0.1, 0.8, 0.3, 0.50]
+                ax.imshow(overlay, origin="lower")
+            elif mask_choice == "Tumor Core (TC)":
+                tc_slice = np.clip(ncr_slice | et_slice, 0, 1)
+                overlay = np.zeros((*base_slice.shape, 4), dtype=np.float32)
+                overlay[tc_slice > 0] = [0.9, 0.2, 0.2, 0.60]
+                ax.imshow(overlay, origin="lower")
 
-                if mask_choice == "Sub-Regions (Color)":
-                    overlay = np.zeros((*base_slice.shape, 4), dtype=np.float32)
-                    overlay[ncr_slice > 0] = [0.9, 0.1, 0.1, 0.55] # Red: Necrosis
-                    overlay[ed_slice > 0]  = [0.1, 0.8, 0.2, 0.40] # Green: Edema
-                    overlay[et_slice > 0]  = [0.0, 0.8, 0.9, 0.65] # Cyan: Enhancing
-                    ax.imshow(overlay, origin="lower")
-                elif mask_choice == "Whole Tumor (WT)":
-                    wt_slice = np.clip(ncr_slice | ed_slice | et_slice, 0, 1)
-                    overlay = np.zeros((*base_slice.shape, 4), dtype=np.float32)
-                    overlay[wt_slice > 0] = [0.1, 0.8, 0.3, 0.50]
-                    ax.imshow(overlay, origin="lower")
-                elif mask_choice == "Tumor Core (TC)":
-                    tc_slice = np.clip(ncr_slice | et_slice, 0, 1)
-                    overlay = np.zeros((*base_slice.shape, 4), dtype=np.float32)
-                    overlay[tc_slice > 0] = [0.9, 0.2, 0.2, 0.60]
-                    ax.imshow(overlay, origin="lower")
+            ax.axis("off")
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.close()
 
-                ax.axis("off")
-                plt.tight_layout()
-                st.pyplot(fig)
-                plt.close()
-
-                st.caption(
-                    "🎨 **Legend**: 🔴 Red = Necrotic debris • 🟢 Green = Peritumoral Edema • 🔵 Cyan = Active Enhancing Rim"
-                )
+            st.caption(
+                "🎨 **Legend**: 🔴 Red = Necrotic debris • 🟢 Green = Peritumoral Edema • 🔵 Cyan = Active Enhancing Rim"
+            )
 
         with col_report:
             st.markdown("##### 📄 Side-by-Side Dual Radiology Report Translator")
+
+            # Report selector across all reports on file
+            if reports:
+                if len(reports) > 1:
+                    rep_options = {
+                        f"📄 {r.get('report_date', 'Recent')} • [{r.get('severity_tag', 'Report')}] • {r.get('uploaded_by', 'Clinician')}": r
+                        for r in reports
+                    }
+                    sel_rep_key = st.selectbox(
+                        "Select Clinical Report on File:",
+                        options=list(rep_options.keys()),
+                        index=0,
+                        key="report_viewer_report_selector_dropdown"
+                    )
+                    matching_report = rep_options[sel_rep_key]
 
             if matching_report:
                 # Medical Terminology Popovers
@@ -235,16 +247,14 @@ def render_report_viewer():
                     st.markdown("###### 🔬 Technical Radiology Report Excerpt")
                     st.info(matching_report['raw_text'])
                 with col_plain:
-                    st.markdown(f"###### 💚 Empathetic 6th-Grade Summary ({selected_lang_label.split()[0]})")
+                    st.markdown(f"###### 💚 Empathetic Plain-Language Summary (Explained Simply, 10-Year-Old Reading Level)")
                     st.success(active_summary)
-
-                # Audio Text-to-Speech Accessibility Player
-                render_audio_tts_player(
-                    text_to_speak=active_summary,
-                    language_code=speech_locale,
-                    label=f"Listen to Summary ({selected_lang_label.split()[0]})",
-                    height=100
-                )
+                    render_audio_tts_player(
+                        text_to_speak=active_summary,
+                        language_code=speech_locale,
+                        label="🔊 Listen to 10-Year-Old Story Voice Over",
+                        height=115
+                    )
 
                 st.markdown("###### 🔍 Extracted Clinical Entities")
                 parsed = matching_report.get('parsed_entities', {})
@@ -256,53 +266,127 @@ def render_report_viewer():
                     with c_e2:
                         st.markdown(f"• **Perfusion rCBV**: `{parsed.get('rcbv', 'N/A')}`")
                         st.markdown(f"• **Severity Level**: `{matching_report.get('severity_tag', 'N/A')}`")
+
+                st.write("")
+                # Official PDF Download Button for Patient
+                pdf_bytes = generate_patient_clinical_pdf(
+                    patient=patient,
+                    report=matching_report,
+                    scan_data=current_scan,
+                    molecular_data=db.get_patient_molecular(patient_id)
+                )
+                st.download_button(
+                    label="📥 Download Official Clinical Report (PDF)",
+                    data=pdf_bytes,
+                    file_name=f"Clinical_Report_{patient['mrn']}_{matching_report.get('report_date', 'date')}.pdf",
+                    mime="application/pdf",
+                    type="primary",
+                    use_container_width=True
+                )
             else:
                 st.info("No text report available for this scan date.")
 
     # =========================================================================
-    # TAB 2: Patient Document & Report Upload
+    # TAB 2: Interactive 3D Brain & Tumor Localization
+    # =========================================================================
+    with tab_3d_brain:
+        render_3d_brain_viewer_panel(
+            patient=patient,
+            scan_data=current_scan,
+            panel_title=f"🧠 Interactive 3D Brain Reconstruction for {patient['full_name']}",
+            key_prefix="patient_report_viewer_3d"
+        )
+
+    # =========================================================================
+    # TAB 3: Patient Document & Report Upload
     # =========================================================================
     with tab_upload:
         st.markdown("##### 📤 Upload External Records, Lab PDFs, or Doctor Notes")
         st.markdown(
-            "Have you received a consultation note, second opinion, or pathology report from outside our clinic? "
-            "Upload or paste it here to automatically translate it into plain language and update your Patient Digital Twin."
+            "Upload or paste an external neuro-radiology or surgical pathology report here to automatically extract findings, "
+            "translate them into plain language, and update your Patient Digital Twin. "
+            "*(Only authentic clinical Radiology or Pathology reports are accepted.)*"
         )
 
-        up_pdf = st.file_uploader("Upload Medical Document (.txt, .pdf)", type=["txt", "pdf"], key="patient_doc_up")
+        up_pdf = st.file_uploader(
+            "Upload Medical Document (.pdf, .docx, .txt, .md, .json)",
+            type=["pdf", "docx", "txt", "md", "json"],
+            key="patient_doc_up",
+            help="Drop Radiology (MRI, CT) or Pathology reports here."
+        )
+
+        extracted_text = ""
+        if up_pdf is not None:
+            raw_up_text = extract_text_from_file(up_pdf)
+            if raw_up_text:
+                is_valid_rep, rep_val_msg = validate_radiology_or_pathology_report(raw_up_text)
+                if not is_valid_rep:
+                    st.error(rep_val_msg)
+                else:
+                    extracted_text = raw_up_text
+                    st.success(f"✅ {rep_val_msg} Extracted **{len(extracted_text.split())}** words from `{up_pdf.name}`.")
+
         pasted_text = st.text_area(
-            "Or Paste Medical Notes / Findings Directly:",
-            placeholder="e.g. Brain MRI scan showing interval stability in the left temporal lobe. No midline shift. Minimal residual edema...",
-            height=130,
+            "Medical Notes / Findings (Extracted or Pasted):",
+            value=extracted_text if extracted_text else "",
+            placeholder="e.g. Brain MRI scan showing interval stability in the left temporal lobe. Residual enhancing lesion 1.4 x 1.8 cm. No midline shift. Minimal residual edema...",
+            height=150,
             key="patient_pasted_report"
         )
 
-        if st.button("🚀 Process & Translate Document", type="primary", use_container_width=True):
-            input_content = pasted_text.strip()
-            if not input_content and up_pdf:
-                input_content = up_pdf.read().decode("utf-8", errors="replace")
+        if st.button("🚀 Process & Analyze Document", type="primary", use_container_width=True):
+            input_content = pasted_text.strip() or extracted_text.strip()
 
             if not input_content:
                 st.error("Please paste report text or upload a document to analyze.")
             else:
-                with st.spinner("Analyzing medical findings with Bio_ClinicalBERT and generating patient-friendly summary..."):
-                    nlp_engine = ClinicalNLPEngine(offline=True)
-                    nlp_res = nlp_engine.analyze_report(input_content)
+                is_valid_doc, doc_msg = validate_radiology_or_pathology_report(input_content)
+                if not is_valid_doc:
+                    st.error(doc_msg)
+                else:
+                    with st.spinner("Analyzing medical findings with Bio_ClinicalBERT and generating patient-friendly summary..."):
+                        nlp_engine = ClinicalNLPEngine(offline=True)
+                        nlp_res = nlp_engine.analyze_report(input_content)
 
                     # Save to database
                     today_str = datetime.now().strftime("%Y-%m-%d")
                     db.insert_clinical_report({
                         "patient_id": patient_id,
-                        "scan_id": current_scan.get("scan_id"),
+                        "scan_id": current_scan.get("scan_id") if 'current_scan' in locals() else None,
                         "uploaded_by": "Patient",
                         "report_date": today_str,
                         "raw_text": input_content,
                         "parsed_entities": nlp_res["parsed_entities"],
                         "plain_language_summary": nlp_res["plain_language_summary"],
+                        "translations": nlp_res.get("translations", {}),
                         "severity_tag": nlp_res["severity_tag"]
                     })
+                    st.session_state.last_uploaded_analysis = nlp_res
 
-                st.success("✅ Document processed successfully! Translated summary added to your records.")
-                st.markdown("##### 🌟 Translated Plain-Language Summary:")
-                st.info(nlp_res["plain_language_summary"])
-                st.rerun()
+                st.success("✅ Clinical report successfully analyzed and saved to your health record!")
+
+        # Display immediate analysis if available
+        last_analysis = st.session_state.get("last_uploaded_analysis")
+        if last_analysis:
+            st.markdown("---")
+            st.markdown("##### 🌟 AI Analysis & Translation Results")
+
+            ent = last_analysis.get("parsed_entities", {})
+            c_r1, c_r2, c_r3, c_r4 = st.columns(4)
+            with c_r1:
+                st.metric("Clinical Severity", last_analysis.get("severity_tag", "Mild"))
+            with c_r2:
+                st.metric("Location", ent.get("tumor_location", "N/A"))
+            with c_r3:
+                st.metric("Dimensions", f"{ent.get('enhancing_dimensions_cm', 'N/A')} cm")
+            with c_r4:
+                st.metric("Perfusion rCBV", f"{ent.get('rcbv', 1.50):.2f}")
+
+            st.markdown("###### 💚 Empathetic Plain-Language Summary (Explained Simply, 10-Year-Old Reading Level):")
+            st.info(last_analysis["plain_language_summary"])
+            render_audio_tts_player(
+                text_to_speak=last_analysis["plain_language_summary"],
+                language_code="en-US",
+                label="🔊 Listen to 10-Year-Old Story Voice Over",
+                height=115
+            )

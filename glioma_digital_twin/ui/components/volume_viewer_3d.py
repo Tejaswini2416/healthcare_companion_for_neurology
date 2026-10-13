@@ -308,19 +308,71 @@ def render_3d_volume_viewer(
             const tumorGroup = new THREE.Group();
             scene.add(tumorGroup);
 
-            // 1. Brain Silhouette Wireframe / Translucent Cortex
-            const cortexGeo = new THREE.SphereGeometry(18, 48, 36);
-            cortexGeo.scale(1.0, 1.2, 1.3); // Anatomical cranium proportion
+            // 1. Anatomical Dual-Hemisphere 3D Brain Cortex with Gyral Convolutions
+            const brainCortexGroup = new THREE.Group();
+            tumorGroup.add(brainCortexGroup);
+
+            // Left Cerebral Hemisphere
+            const leftHemiGeo = new THREE.SphereGeometry(15.5, 64, 48);
+            leftHemiGeo.scale(0.85, 1.15, 1.35);
+            const lPos = leftHemiGeo.attributes.position;
+            for (let i = 0; i < lPos.count; i++) {{
+                let vx = lPos.getX(i);
+                let vy = lPos.getY(i);
+                let vz = lPos.getZ(i);
+                // Indent medial surface along longitudinal fissure
+                if (vx > 0) vx *= 0.82;
+                // Add gyral folds & sulcal wrinkles
+                const gyrus = (Math.sin(vx * 1.4) * Math.cos(vy * 1.4) + Math.sin(vz * 1.8) * 0.5) * 0.55;
+                lPos.setXYZ(i, vx + gyrus, vy + gyrus * 0.8, vz + gyrus * 0.9);
+            }}
+            leftHemiGeo.computeVertexNormals();
+
+            // Right Cerebral Hemisphere
+            const rightHemiGeo = new THREE.SphereGeometry(15.5, 64, 48);
+            rightHemiGeo.scale(0.85, 1.15, 1.35);
+            const rPos = rightHemiGeo.attributes.position;
+            for (let i = 0; i < rPos.count; i++) {{
+                let vx = rPos.getX(i);
+                let vy = rPos.getY(i);
+                let vz = rPos.getZ(i);
+                // Indent medial surface along longitudinal fissure
+                if (vx < 0) vx *= 0.82;
+                // Add gyral folds & sulcal wrinkles
+                const gyrus = (Math.sin(vx * 1.4) * Math.cos(vy * 1.4) + Math.sin(vz * 1.8) * 0.5) * 0.55;
+                rPos.setXYZ(i, vx + gyrus, vy + gyrus * 0.8, vz + gyrus * 0.9);
+            }}
+            rightHemiGeo.computeVertexNormals();
+
             const cortexMat = new THREE.MeshPhysicalMaterial({{
-                color: 0x475569,
-                wireframe: true,
+                color: 0x94a3b8,
+                roughness: 0.35,
+                metalness: 0.1,
+                transmission: 0.55,
                 transparent: true,
-                opacity: 0.15,
-                roughness: 0.4,
-                metalness: 0.1
+                opacity: 0.42,
+                wireframe: false,
+                clearcoat: 0.3,
+                clearcoatRoughness: 0.2,
+                clippingPlanes: []
             }});
-            const cortexMesh = new THREE.Mesh(cortexGeo, cortexMat);
-            tumorGroup.add(cortexMesh);
+
+            const leftHemiMesh = new THREE.Mesh(leftHemiGeo, cortexMat);
+            leftHemiMesh.position.set(-6.8, 1.0, 0);
+            brainCortexGroup.add(leftHemiMesh);
+
+            const rightHemiMesh = new THREE.Mesh(rightHemiGeo, cortexMat);
+            rightHemiMesh.position.set(6.8, 1.0, 0);
+            brainCortexGroup.add(rightHemiMesh);
+
+            // Cerebellum (inferior posterior)
+            const cerebGeo = new THREE.SphereGeometry(8.5, 32, 24);
+            cerebGeo.scale(1.4, 0.75, 0.95);
+            const cerebMesh = new THREE.Mesh(cerebGeo, cortexMat);
+            cerebMesh.position.set(0, -9.5, -8.0);
+            brainCortexGroup.add(cerebMesh);
+
+            const cortexMesh = brainCortexGroup;
 
             // 2. Vasogenic Edema (ED) Outer Volume
             const edRadius = Math.max(4.0, Math.cbrt({ed_vol} * 4.5));

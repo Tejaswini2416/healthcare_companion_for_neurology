@@ -2,33 +2,23 @@
 Clinician Workstation Component
 Neuro-Oncology Clinical Console providing:
 1. Multi-Patient Roster & Global Active Patient Selector
-2. Comprehensive Clinical Ingestion Suite (4-Channel 3D MRI + Free-Text Report + Multimodal Execution)
+2. Clinical Report Ingestion & Verification Hub (Bio_ClinicalBERT + RANO 2.0)
 3. Medication Management & Verification Hub (Prescriptions + Adherence Overrides + Clinical Notes)
 4. Clinical Report Generator & Formal Print/Export Console (window.print() + formatted markdown)
-5. Counterfactual In-Silico Horizon Simulator (Fisher-Kolmogorov 3D Reaction-Diffusion PDE)
 """
 
 import os
 import uuid
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
-import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
 from ...utils.supabase_client import get_database_client
-from ...models.mri_segmenter import SegResNetSegmenter, SyntheticBraTSGenerator
-from ...models.clinical_nlp import ClinicalNLPEngine
-from ...models.biophysical_solver import FisherKolmogorovSolver
-from ...models.triage_engine import RANO2TriageEngine
-from ...models.multimodal_twin import MultimodalTwinFusion
-from .mri_evaluator import render_mri_evaluator
 from .doctor_login import get_current_doctor, is_doctor_authenticated, logout_doctor
-from .report_verification_hub import render_report_verification_hub
-from .volume_viewer_3d import render_3d_volume_viewer
 from ...models.red_flag_alert import get_escalation_engine
+from .brain_3d_viewer import render_3d_brain_viewer_panel
+from ...utils.pdf_generator import generate_patient_clinical_pdf
 
 
 def _render_escalations_queue(current_doc: Optional[Dict[str, Any]], active_mrn: str):
@@ -86,6 +76,12 @@ def _render_escalations_queue(current_doc: Optional[Dict[str, Any]], active_mrn:
                 """,
                 unsafe_allow_html=True
             )
+
+            if alert.get("mrn") != active_mrn:
+                if st.button(f"🔍 Switch Workstation to {alert.get('patient_name', 'Patient')} (MRN: {alert.get('mrn')})", key=f"btn_switch_alert_{alert['alert_id']}"):
+                    st.session_state.active_patient_mrn = alert["mrn"]
+                    st.session_state["last_synced_clinician_mrn"] = alert["mrn"]
+                    st.rerun()
 
             # SBAR Breakdown
             sbar = alert.get("sbar", {})
@@ -176,25 +172,31 @@ def render_clinician_workstation():
         for p in patients
     }
 
-    # Determine default index based on session state
     active_mrn = st.session_state.get("active_patient_mrn", "0042")
     current_idx = 0
+    option_keys = list(patient_options.keys())
     for idx, (label, mrn) in enumerate(patient_options.items()):
         if mrn == active_mrn:
             current_idx = idx
             break
 
+    # Sync selectbox key if active_mrn changed from sidebar or another action
+    if st.session_state.get("last_synced_clinician_mrn") != active_mrn and current_idx < len(option_keys):
+        st.session_state["clinician_patient_context_selector"] = option_keys[current_idx]
+        st.session_state["last_synced_clinician_mrn"] = active_mrn
+
     c_sel, c_badge = st.columns([3, 1.2])
     with c_sel:
         selected_patient_label = st.selectbox(
             "🏥 Active Patient Context:",
-            options=list(patient_options.keys()),
+            options=option_keys,
             index=current_idx,
             key="clinician_patient_context_selector"
         )
-        selected_mrn = patient_options[selected_patient_label]
+        selected_mrn = patient_options.get(selected_patient_label, active_mrn)
         if selected_mrn != st.session_state.get("active_patient_mrn"):
             st.session_state.active_patient_mrn = selected_mrn
+            st.session_state["last_synced_clinician_mrn"] = selected_mrn
             st.rerun()
 
     patient = db.get_patient_by_mrn(st.session_state.get("active_patient_mrn", "0042"))
@@ -239,13 +241,11 @@ def render_clinician_workstation():
     _render_escalations_queue(current_doc=current_doc, active_mrn=patient["mrn"])
 
     # Clinical Tabs
-    tab_roster, tab_report_verify, tab_mri_ingest, tab_meds, tab_report_gen, tab_sim = st.tabs([
+    tab_roster, tab_meds, tab_report_gen, tab_3d_brain = st.tabs([
         "📋 Multi-Patient Roster",
-        "📄 Upload & Verify Clinical Reports",
-        "🧠 3D & 2D MRI Diagnostic Suite",
         "💊 Medication Management & Verification Hub",
         "📑 Clinical Report Generator & Print Console",
-        "🔮 Counterfactual In-Silico Horizon Simulator"
+        "🧠 3D Brain & Tumor Localization"
     ])
 
     # =========================================================================
@@ -280,269 +280,29 @@ def render_clinician_workstation():
 
         st.dataframe(roster_rows, use_container_width=True)
 
-        st.caption("💡 Select any patient above using the **Active Patient Context** dropdown to inspect their records and run simulations.")
-
-    # =========================================================================
-    # TAB 2: Upload & Verify Clinical Reports (Bio_ClinicalBERT + RANO 2.0)
-    # =========================================================================
-    with tab_report_verify:
-        render_report_verification_hub(
-            patient=patient,
-            db=db,
-            latest_scan=latest_scan,
-            molecular=molecular,
-            current_doc=current_doc
-        )
-
-    # =========================================================================
-    # TAB 3: 3D & 2D MRI Diagnostic Suite
-    # =========================================================================
-    with tab_mri_ingest:
-        sub_tab_mpr, sub_tab_xai, sub_tab_3d, sub_tab_2d = st.tabs([
-            "🖼️ Interactive 3D MPR Slice & Mask Viewer",
-            "🔍 XAI & Modality Attribution Panel",
-            "🧠 3D BraTS Multi-Sequence Pipeline (.nii/.nii.gz)",
-            "📤 2D MRI Rapid Screening & Grad-CAM"
-        ])
-
-        with sub_tab_mpr:
-            st.markdown("##### 🖼️ Multi-Planar Reconstruction (MPR) & 3D Volumetric Viewer")
-            c_mpr_ctrl, c_mpr_view = st.columns([1, 1.8])
-
-            with c_mpr_ctrl:
-                st.markdown("###### 🎛️ Slice Controls & Channels")
-                mpr_sequence = st.selectbox(
-                    "MRI Sequence Channel:",
-                    ["T1ce (Contrast Enhanced)", "FLAIR (Edema)", "T2", "T1 Native"],
-                    index=0,
-                    key="mpr_seq_select"
-                )
-                mpr_slice_idx = st.slider("Axial Slice Z Index:", min_value=0, max_value=100, value=50, key="mpr_z_slider")
-
-                st.markdown("###### 🎨 Segmentation Mask Overlays")
-                show_ncr = st.checkbox("🔴 Necrotic Core (NCR)", value=True, key="mpr_chk_ncr")
-                show_ed = st.checkbox("🟡 Peritumoral Edema (ED)", value=True, key="mpr_chk_ed")
-                show_et = st.checkbox("🟢 Enhancing Tumor (ET)", value=True, key="mpr_chk_et")
-
-                st.markdown("###### ✍️ Radiologist Manual Override")
-                with st.popover("✏️ Edit Segmentation Mask"):
-                    st.write("**Manual Contour Adjustment & Voxel Recalculator**")
-                    brush_rad = st.slider("Brush Radius (px):", 1, 20, 5, key="mpr_brush_r")
-                    adj_target = st.selectbox("Subregion to Adjust:", ["Enhancing Tumor (ET)", "Peritumoral Edema (ED)", "Whole Tumor (WT)"], key="mpr_adj_target")
-                    adj_pct = st.slider("Volume Correction Factor (%):", -25, 25, 0, format="%d%%", key="mpr_adj_pct")
-
-                    if st.button("Commit Manual Adjustments", key="mpr_commit_btn"):
-                        factor = 1.0 + (adj_pct / 100.0)
-                        if "ET" in adj_target:
-                            latest_scan["et_vol_cm3"] = round(latest_scan["et_vol_cm3"] * factor, 2)
-                        elif "ED" in adj_target:
-                            latest_scan["edema_vol_cm3"] = round(latest_scan["edema_vol_cm3"] * factor, 2)
-                        latest_scan["wt_vol_cm3"] = round(latest_scan["et_vol_cm3"] + latest_scan["edema_vol_cm3"] + 3.8, 2)
-                        st.success(f"Recalculated: WT = {latest_scan['wt_vol_cm3']} cm³, ET = {latest_scan['et_vol_cm3']} cm³")
+        st.markdown("##### 🔀 Instant Patient Queue Selector")
+        st.caption("Click any patient below to immediately switch the clinical workstation to their file and simulation state:")
+        for p in patients:
+            col_q1, col_q2, col_q3, col_q4 = st.columns([2.5, 2.0, 1.5, 1.2])
+            is_cur = (p["mrn"] == active_mrn)
+            with col_q1:
+                st.markdown(f"**{p['full_name']}** (`MRN: {p['mrn']}`)")
+                st.caption(f"{p.get('diagnosis_type', 'Glioma')} • {p.get('diagnosis_location', 'Brain')}")
+            with col_q2:
+                st.caption(f"📅 Diag: `{p.get('diagnosis_date', 'N/A')}` • Next Visit: `{p.get('next_visit_date', 'N/A')}`")
+            with col_q3:
+                st.caption(f"KPS: **{p.get('baseline_kps', 90)}%** • Stage: {p.get('treatment_stage', 'Adjuvant')[:22]}...")
+            with col_q4:
+                if is_cur:
+                    st.success("🟢 Active")
+                else:
+                    if st.button("👉 Switch", key=f"btn_switch_roster_{p['mrn']}", use_container_width=True):
+                        st.session_state.active_patient_mrn = p["mrn"]
+                        st.session_state["last_synced_clinician_mrn"] = p["mrn"]
                         st.rerun()
 
-            with c_mpr_view:
-                # Generate synthetic slice with colored mask overlays for Plotly
-                grid_sz = 100
-                y, x = np.ogrid[-grid_sz//2:grid_sz//2, -grid_sz//2:grid_sz//2]
-                base_img = np.exp(-(x**2 + y**2) / (2 * 22**2)) * 255.0
-
-                # Create 3-channel RGB image
-                rgb_slice = np.stack([base_img, base_img, base_img], axis=-1).astype(np.float32) / 255.0
-
-                if show_ed:
-                    ed_mask = (x**2 + y**2 < 26**2) & (x**2 + y**2 >= 13**2)
-                    rgb_slice[ed_mask] = [0.9, 0.85, 0.1] # Yellow
-                if show_et:
-                    et_mask = (x**2 + y**2 < 13**2) & (x**2 + y**2 >= 6**2)
-                    rgb_slice[et_mask] = [0.1, 0.85, 0.2] # Green
-                if show_ncr:
-                    ncr_mask = (x**2 + y**2 < 6**2)
-                    rgb_slice[ncr_mask] = [0.9, 0.15, 0.15] # Red
-
-                fig_mpr = px.imshow(rgb_slice, title=f"Axial View - Slice Z={mpr_slice_idx} [{mpr_sequence}]")
-                fig_mpr.update_layout(
-                    margin=dict(l=0, r=0, t=32, b=0),
-                    height=360,
-                    coloraxis_showscale=False
-                )
-                st.plotly_chart(fig_mpr, use_container_width=True)
-
-            st.divider()
-            st.markdown("##### 🌐 Embedded 3D WebGL Volume Renderer (Three.js 360° Orbit)")
-            render_3d_volume_viewer(scan_data=latest_scan, patient_info=patient, height=480)
-
-        with sub_tab_xai:
-            st.markdown("##### 🔍 Multimodal Intermediate Cross-Attention Weights & Attribution")
-            st.markdown("Relative contribution of each modality to the final RANO 2.0 Triage & Progression Risk score:")
-
-            weights_data = {
-                "Modality": ["3D MRI Volumetrics (SegResNet)", "Radiology Report NLP (Bio_ClinicalBERT)", "EHR & Adherence Vector"],
-                "Attention Weight (%)": [58.2, 31.5, 10.3]
-            }
-            fig_xai = px.bar(
-                weights_data,
-                x="Attention Weight (%)",
-                y="Modality",
-                orientation='h',
-                color="Modality",
-                text="Attention Weight (%)",
-                color_discrete_sequence=["#0f766e", "#2563eb", "#d97706"]
-            )
-            fig_xai.update_layout(
-                height=260,
-                margin=dict(l=20, r=20, t=20, b=20),
-                xaxis=dict(range=[0, 100])
-            )
-            st.plotly_chart(fig_xai, use_container_width=True)
-
-            c_tog, c_expl = st.columns([1.5, 2.5])
-            with c_tog:
-                show_cam = st.toggle("Show Uncertainty Heatmap / Grad-CAM Saliency", value=True)
-            with c_expl:
-                if show_cam:
-                    st.caption("🔥 **Grad-CAM Active**: Saliency highlights focal hyperintensity along posterior margin of resection cavity.")
-
-        with sub_tab_3d:
-            st.markdown("##### 1. Multi-Sequence 3D MRI Ingestion (.nii / .nii.gz)")
-            st.caption("Upload four co-registered BraTS structural sequences for 3D volumetric sub-region quantification.")
-
-            col_u1, col_u2, col_u3, col_u4 = st.columns(4)
-            with col_u1:
-                u_t1 = st.file_uploader("T1-Weighted", type=["nii", "gz"], key="up_t1")
-            with col_u2:
-                u_t1ce = st.file_uploader("T1ce (Contrast)", type=["nii", "gz"], key="up_t1ce")
-            with col_u3:
-                u_t2 = st.file_uploader("T2-Weighted", type=["nii", "gz"], key="up_t2")
-            with col_u4:
-                u_flair = st.file_uploader("FLAIR", type=["nii", "gz"], key="up_flair")
-
-            c_demo, c_status = st.columns([1.5, 2.5])
-            with c_demo:
-                if st.button("⚡ Load Demo BraTS Follow-Up Volume", use_container_width=True):
-                    st.session_state.demo_scan_loaded = True
-            with c_status:
-                if st.session_state.get("demo_scan_loaded", False):
-                    st.success(f"✅ Multi-channel 3D BraTS follow-up scan staged for **{patient['full_name']}**.")
-
-            st.markdown("##### 2. Free-Text Clinical Radiology / Consultation Report")
-            default_report = (
-                f"EXAMINATION: Brain MRI multi-parametric volumetric analysis with and without gadolinium for {patient['full_name']} (MRN: {patient['mrn']}).\n"
-                f"FINDINGS: Interval reduction in enhancing residual lesion along posterior resection margin in {patient['diagnosis_location']}, "
-                f"measuring 1.3 x 1.7 cm. Enhancing tumor volume estimated at 3.90 cm3. Stable perilesional vasogenic edema at 6.40 cm3. "
-                f"No mass effect or midline shift. Ventricles are symmetric. Relative CBV is reduced at 1.45.\n"
-                f"IMPRESSION: Findings consistent with treatment-induced pseudoprogression / radiation necrosis (RANO PsP 84%). Stable clinical picture."
-            )
-            report_text = st.text_area(
-                "Radiology Narrative Findings & Impression",
-                value=default_report,
-                height=130
-            )
-
-            st.markdown("##### 3. Execute End-to-End Multimodal Analysis")
-            if st.button("🚀 Run Full Multimodal Analysis & Update Patient Twin", type="primary", use_container_width=True):
-                with st.status(f"Executing End-to-End Multimodal Pipeline for {patient['full_name']}...", expanded=True) as status:
-                    # Stage 1: Segmentation
-                    st.write("1. Running MONAI SegResNet 3D volumetric segmentation on 4-channel MRI...")
-                    segmenter = SegResNetSegmenter()
-                    vol_4ch, _ = SyntheticBraTSGenerator.generate_synthetic_volume(
-                        shape=(64, 64, 48),
-                        wt_radius=13.0,
-                        tc_radius=8.0,
-                        et_thickness=3.6
-                    )
-                    seg_res = segmenter.extract_latent_and_segment(vol_4ch)
-                    vols = seg_res["volumes_cm3"]
-                    mri_latent_128 = seg_res["latent_vector"]
-                    st.write(f"   ↳ SegResNet Complete. Whole Tumor (WT): {vols['WT']} cm³, Enhancing (ET): {vols['ET']} cm³, Dice Confidence: {seg_res['dice_score']}")
-
-                    # Stage 2: Clinical NLP
-                    st.write("2. Running Bio_ClinicalBERT semantic parsing & 6th-grade translation...")
-                    nlp_engine = ClinicalNLPEngine(offline=True)
-                    nlp_res = nlp_engine.analyze_report(report_text)
-                    nlp_embed_11 = nlp_res["embedding_11d"]
-                    st.write(f"   ↳ NLP Complete. Severity Tag: [{nlp_res['severity_tag']}]. Extracted rCBV: {nlp_res['parsed_entities']['rcbv']}")
-
-                    # Stage 3: RANO 2.0 Triage
-                    st.write("3. Evaluating RANO 2.0 pseudoprogression rules and urgency triage...")
-                    triage_eng = RANO2TriageEngine()
-                    triage_res = triage_eng.evaluate_response(
-                        current_et_vol=vols["ET"],
-                        prior_et_vol=latest_scan.get("et_vol_cm3", 4.10),
-                        baseline_et_vol=8.20,
-                        days_since_rt_completion=52,
-                        rcbv=nlp_res["parsed_entities"]["rcbv"],
-                        mgmt_methylated=molecular.get("mgmt_methylated", True),
-                        midline_shift_mm=0.0
-                    )
-                    st.write(f"   ↳ RANO Category: **[{triage_res['rano_category']}]** (PsP Probability: {triage_res['pseudoprogression_probability'] * 100:.1f}%) | Urgency: [{triage_res['triage_category']}]")
-
-                    # Stage 4: Multimodal Attention Fusion
-                    st.write("4. Executing PyTorch Cross-Attention Multimodal Fusion (128D MRI + 11D NLP + 8D EHR)...")
-                    fusion = MultimodalTwinFusion()
-                    ehr_vec_8 = fusion.construct_ehr_vector(
-                        age=patient["age"],
-                        baseline_kps=patient["baseline_kps"],
-                        idh_status=molecular.get("idh_status", "Mutant"),
-                        mgmt_methylated=molecular.get("mgmt_methylated", True),
-                        adherence_pct=92.5,
-                        missed_meds_flag=False,
-                        symptom_severity=nlp_res["severity_tag"],
-                        has_seizure_or_aura=False
-                    )
-                    twin_res = fusion.fuse(mri_latent_128, nlp_embed_11, ehr_vec_8)
-                    st.write(f"   ↳ 64-Dimensional Patient Health Twin generated. Progression Risk: {twin_res['progression_risk_score'] * 100:.1f}%")
-
-                    # Stage 5: Database Commit
-                    st.write("5. Committing new scan, translated report, and twin timeline to database...")
-                    new_scan_id = str(uuid.uuid4())
-                    today_str = datetime.now().strftime("%Y-%m-%d")
-
-                    db.insert_scan_record({
-                        "scan_id": new_scan_id,
-                        "patient_id": patient_id,
-                        "scan_date": today_str,
-                        "wt_vol_cm3": vols["WT"],
-                        "tc_vol_cm3": vols["TC"],
-                        "et_vol_cm3": vols["ET"],
-                        "edema_vol_cm3": vols["ED"],
-                        "dice_score": seg_res["dice_score"],
-                        "estimated_rcbv": nlp_res["parsed_entities"]["rcbv"],
-                        "mask_storage_path": f"scans/{patient['mrn']}/{today_str.replace('-','')}_seg.nii.gz"
-                    })
-
-                    db.insert_clinical_report({
-                        "patient_id": patient_id,
-                        "scan_id": new_scan_id,
-                        "uploaded_by": "Clinician",
-                        "report_date": today_str,
-                        "raw_text": report_text,
-                        "parsed_entities": nlp_res["parsed_entities"],
-                        "plain_language_summary": nlp_res["plain_language_summary"],
-                        "severity_tag": nlp_res["severity_tag"]
-                    })
-
-                    db.update_twin_timeline({
-                        "patient_id": patient_id,
-                        "evaluation_date": today_str,
-                        "progression_risk_score": twin_res["progression_risk_score"],
-                        "triage_category": triage_res["triage_category"],
-                        "rano_category": triage_res["rano_category"],
-                        "pseudoprogression_risk": triage_res["pseudoprogression_probability"],
-                        "is_pseudoprogression": triage_res["is_pseudoprogression"],
-                        "adherence_rate_pct": 92.5,
-                        "latent_twin_vector": twin_res["latent_twin_vector"],
-                        "alert_banner_text": triage_res["alert_banner_text"]
-                    })
-
-                    status.update(label="✅ End-to-End Multimodal Analysis Complete & Database Synchronized!", state="complete")
-                    st.success(f"Successfully processed new consultation scan and updated Digital Twin for {patient['full_name']}.")
-
-        with sub_tab_2d:
-            render_mri_evaluator()
-
     # =========================================================================
-    # TAB 3: Medication Management & Verification Hub
+    # TAB 2: Medication Management & Verification Hub
     # =========================================================================
     with tab_meds:
         st.markdown("##### 💊 Medication Governance & Clinical Verification Hub")
@@ -716,16 +476,17 @@ def render_clinician_workstation():
 ---
 
 ### 1. PATIENT DEMOGRAPHICS & CLINICAL IDENTIFIERS
-* **Patient Name**: {patient['full_name']}
-* **Medical Record Number (MRN)**: `{patient['mrn']}`
-* **Age / Gender**: {patient['age']} years old | {patient['gender']}
-* **Clinical Diagnosis**: {patient['diagnosis_type']}
-* **Anatomical Location**: {patient['diagnosis_location']}
-* **Initial Diagnosis Date**: {patient['diagnosis_date']}
-* **Current Treatment Protocol**: {patient['treatment_stage']}
-* **Functional Performance Score**: Karnofsky Performance Scale (KPS) {patient['baseline_kps']}%
-* **Attending Neuro-Oncologist**: {patient['oncologist_name']}
-* **Care Navigator**: {patient['nurse_name']}
+* **Patient Name**: {patient.get('full_name', 'Unknown')}
+* **Medical Record Number (MRN)**: `{patient.get('mrn', 'N/A')}`
+* **Age / Gender**: {patient.get('age', 45)} years old | {patient.get('gender', 'Female')}
+* **Clinical Diagnosis**: {patient.get('diagnosis_type', 'Glioma')}
+* **Anatomical Location**: {patient.get('diagnosis_location', 'Brain')}
+* **Initial Diagnosis Date**: {patient.get('diagnosis_date', 'N/A')}
+* **Next Follow-up Visit**: {patient.get('next_visit_date', 'In 2 weeks')}
+* **Current Treatment Protocol**: {patient.get('treatment_stage', 'Adjuvant Therapy')}
+* **Functional Performance Score**: Karnofsky Performance Scale (KPS) {patient.get('baseline_kps', 90)}%
+* **Attending Neuro-Oncologist**: {patient.get('oncologist_name', 'Dr. Aris Thorne, MD')}
+* **Care Navigator**: {patient.get('nurse_name', 'Sarah Jensen, RN')}
 
 ---
 
@@ -794,13 +555,33 @@ def render_clinician_workstation():
             with st.expander("👁️ View Full Formatted Report", expanded=True):
                 st.markdown(consultation_markdown)
 
-            col_down, col_print = st.columns([1, 1])
+            col_down, col_pdf, col_print = st.columns([1, 1, 1])
             with col_down:
                 st.download_button(
-                    label="💾 Download Consultation Summary (.md)",
+                    label="💾 Download Summary (.md)",
                     data=consultation_markdown,
                     file_name=f"Consultation_Summary_{patient['mrn']}_{datetime.now().strftime('%Y%m%d')}.md",
                     mime="text/markdown",
+                    use_container_width=True
+                )
+            with col_pdf:
+                doc_pdf_bytes = generate_patient_clinical_pdf(
+                    patient=patient,
+                    report={
+                        "report_date": today_date,
+                        "report_id": f"CONSULT-{patient['mrn']}",
+                        "raw_text": consultation_markdown,
+                        "plain_language_summary": reports[0].get('plain_language_summary', 'Your scan shows steady progress.') if reports else 'Your scan shows steady progress.'
+                    },
+                    scan_data=latest_vols,
+                    molecular_data=molecular
+                )
+                st.download_button(
+                    label="📥 Download Clinical PDF",
+                    data=doc_pdf_bytes,
+                    file_name=f"Clinical_Consultation_{patient['mrn']}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    type="primary",
                     use_container_width=True
                 )
             with col_print:
@@ -808,123 +589,20 @@ def render_clinician_workstation():
                 st.markdown(
                     """
                     <button onclick="window.print()" style="width: 100%; height: 38px; background-color: #0f766e; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                        🖨️ Print Consultation Report (PDF)
+                        🖨️ Print Consultation Report
                     </button>
                     """,
                     unsafe_allow_html=True
                 )
 
     # =========================================================================
-    # TAB 5: Counterfactual In-Silico Horizon Simulator
+    # TAB 4: Interactive 3D Brain & Tumor Localization
     # =========================================================================
-    with tab_sim:
-        st.markdown("##### 🔮 Fisher-Kolmogorov 3D Biophysical Reaction-Diffusion PDE Simulator")
-        st.markdown(
-            f"Forecast personalized tumor volume and KPS trajectories for **{patient['full_name']}** "
-            "under counterfactual therapeutic modifications."
+    with tab_3d_brain:
+        render_3d_brain_viewer_panel(
+            patient=patient,
+            scan_data=latest_scan,
+            panel_title=f"🧠 3D Brain Volumetric Reconstruction: {patient['full_name']} (MRN: {patient['mrn']})",
+            key_prefix="clinician_workstation_3d"
         )
 
-        col_c1, col_c2 = st.columns(2)
-        with col_c1:
-            intervention = st.selectbox(
-                "Counterfactual Therapeutic Regimen:",
-                options=[
-                    ("SOC_TMZ", "Standard-of-Care Temozolomide (SOC_TMZ)"),
-                    ("DOSE_DENSE", "Dose-Dense Temozolomide 7/14 (DOSE_DENSE)"),
-                    ("HOLD_TMZ", "Therapeutic Hold / TMZ Pause (HOLD_TMZ)"),
-                    ("LOMUSTINE", "Second-Line Alkylating Agent Lomustine (LOMUSTINE)")
-                ],
-                format_func=lambda x: x[1]
-            )[0]
-
-        with col_c2:
-            horizon = st.select_slider(
-                "Forecast Horizon (Days):",
-                options=[30, 60, 90, 180],
-                value=180
-            )
-
-        if st.button("⚡ Solve 3D Biophysical PDE & Forecast Trajectory", type="primary", use_container_width=True):
-            solver = FisherKolmogorovSolver()
-            sim_res = solver.simulate_counterfactual(
-                initial_vol_cm3=latest_scan.get("wt_vol_cm3", 14.60),
-                baseline_kps=patient["baseline_kps"],
-                idh_status=molecular.get("idh_status", "Mutant"),
-                mgmt_methylated=molecular.get("mgmt_methylated", True),
-                intervention=intervention,
-                forecast_horizon_days=horizon
-            )
-
-            traj = sim_res["trajectory"]
-            days = traj["days"]
-            vols_pred = traj["tumor_vol_cm3"]
-            kps_pred = traj["kps_score"]
-
-            col_p1, col_p2 = st.columns([1.5, 1])
-
-            with col_p1:
-                fig_sim = go.Figure()
-
-                # Trace 1: Predicted Tumor Volume
-                fig_sim.add_trace(go.Scatter(
-                    x=days,
-                    y=vols_pred,
-                    mode='lines+markers',
-                    name='Tumor Volume (cm³)',
-                    line=dict(color='#0f766e', width=3),
-                    marker=dict(size=6, color='#0f766e'),
-                    yaxis='y1'
-                ))
-
-                # Trace 2: Predicted KPS Score
-                fig_sim.add_trace(go.Scatter(
-                    x=days,
-                    y=kps_pred,
-                    mode='lines+markers',
-                    name='KPS Functional Score',
-                    line=dict(color='#be185d', width=2.5, dash='dash'),
-                    marker=dict(size=6, color='#be185d', symbol='square'),
-                    yaxis='y2'
-                ))
-
-                fig_sim.update_layout(
-                    title=f"In-Silico Biophysical Forecast: {intervention} ({horizon} Days)",
-                    xaxis=dict(title="Days Post-Evaluation"),
-                    yaxis=dict(
-                        title="Tumor Volume (cm³)",
-                        titlefont=dict(color="#0f766e"),
-                        tickfont=dict(color="#0f766e")
-                    ),
-                    yaxis2=dict(
-                        title="KPS Functional Score",
-                        titlefont=dict(color="#be185d"),
-                        tickfont=dict(color="#be185d"),
-                        overlaying="y",
-                        side="right",
-                        range=[40, 105]
-                    ),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                    template="plotly_white",
-                    height=420,
-                    margin=dict(l=10, r=10, t=40, b=10)
-                )
-                st.plotly_chart(fig_sim, use_container_width=True)
-
-            with col_p2:
-                st.markdown("##### 📐 Calibrated Biophysical Parameters")
-                params = sim_res.get("biophysical_parameters", {})
-                rho_val = params.get("rho_proliferation_day", 0.016)
-                k_val = params.get("k_kill_day", 0.024)
-                d_val = params.get("diffusivity_cm2_day", params.get("D_motility_cm2_day", 0.002))
-                net_val = params.get("net_growth_rate_day", params.get("net_growth_rate", rho_val - k_val))
-                st.markdown(
-                    f"""
-                    - **Proliferation Rate ($\rho$)**: `{rho_val:.4f} /day`
-                    - **Therapeutic Cell Kill ($k_{{kill}}$)**: `{k_val:.4f} /day`
-                    - **Diffusivity ($D$)**: `{d_val} cm²/day`
-                    - **Net Effective Growth Rate**: `{net_val:.4f} /day`
-                    """
-                )
-
-                st.markdown("##### 📊 Trajectory Summary")
-                st.info(sim_res["summary"])

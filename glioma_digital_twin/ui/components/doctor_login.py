@@ -9,7 +9,7 @@ Provides:
 """
 
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Callable
 from ...utils.supabase_client import get_database_client
 
@@ -53,6 +53,9 @@ CLINICIAN_PROFILES: List[Dict[str, Any]] = [
     }
 ]
 
+# Clinician cohort alias for backwards compatibility
+DOCTOR_COHORT = CLINICIAN_PROFILES
+
 
 def get_current_doctor() -> Optional[Dict[str, Any]]:
     """Returns the authenticated doctor profile from session state, or None."""
@@ -70,6 +73,7 @@ def is_doctor_authenticated() -> bool:
 def logout_doctor():
     """Logs out the current doctor."""
     st.session_state.doctor_session = {"logged_in": False, "doctor": None}
+    st.session_state.user_role = None
     st.session_state.current_view = "login"
     st.rerun()
 
@@ -81,9 +85,60 @@ def login_doctor(doctor_profile: Dict[str, Any]):
         "doctor": doctor_profile,
         "login_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
+    # Clear patient session
+    st.session_state.patient_session = {"logged_in": False, "patient": None}
+    st.session_state.user_role = "doctor"
     # Set default patient to first assigned patient if available
     if doctor_profile.get("assigned_mrns"):
         st.session_state.active_patient_mrn = doctor_profile["assigned_mrns"][0]
+
+
+def get_current_patient() -> Optional[Dict[str, Any]]:
+    """Returns the authenticated patient profile from session state, or None."""
+    session = st.session_state.get("patient_session", {})
+    if session.get("logged_in"):
+        return session.get("patient")
+    return None
+
+
+def is_patient_authenticated() -> bool:
+    """Checks if a patient is currently logged in."""
+    return st.session_state.get("patient_session", {}).get("logged_in", False)
+
+
+def login_patient(patient_profile: Dict[str, Any]):
+    """Logs in a patient profile and sets session state."""
+    st.session_state.patient_session = {
+        "logged_in": True,
+        "patient": patient_profile,
+        "login_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    # Clear doctor session
+    st.session_state.doctor_session = {"logged_in": False, "doctor": None}
+    st.session_state.active_patient_mrn = patient_profile["mrn"]
+    st.session_state.user_role = "patient"
+
+
+def logout_patient():
+    """Logs out the current patient."""
+    st.session_state.patient_session = {"logged_in": False, "patient": None}
+    st.session_state.user_role = None
+    st.session_state.current_view = "login"
+    st.rerun()
+
+
+def is_user_authenticated() -> bool:
+    """Checks if either doctor or patient is authenticated."""
+    return is_doctor_authenticated() or is_patient_authenticated()
+
+
+def logout_any_user():
+    """Logs out whichever user is currently authenticated."""
+    st.session_state.doctor_session = {"logged_in": False, "doctor": None}
+    st.session_state.patient_session = {"logged_in": False, "patient": None}
+    st.session_state.user_role = None
+    st.session_state.current_view = "login"
+    st.rerun()
 
 
 def render_doctor_login(on_success: Optional[Callable[[], None]] = None):
@@ -94,9 +149,72 @@ def render_doctor_login(on_success: Optional[Callable[[], None]] = None):
     db = get_database_client()
     patients = db.get_all_patients()
     current_doc = get_current_doctor()
+    current_patient = get_current_patient()
 
     # =========================================================================
-    # STATE A: DOCTOR IS ALREADY LOGGED IN -> Patient Overview & Quick Inspector
+    # STATE A1: PATIENT IS ALREADY LOGGED IN -> Patient Overview & Quick Actions
+    # =========================================================================
+    if current_patient:
+        st.markdown(
+            f"""
+            <div style="background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); padding: 1.5rem; border-radius: 12px; color: white; margin-bottom: 1.2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 6px;">
+                            Active Patient Portal Session
+                        </span>
+                        <h2 style="margin: 8px 0 4px 0; font-size: 1.6rem; font-weight: 700;">
+                            👤 {current_patient['full_name']}
+                        </h2>
+                        <p style="margin: 0; opacity: 0.9; font-size: 0.95rem;">
+                            MRN: <strong>{current_patient['mrn']}</strong> • Age: {current_patient['age']} • {current_patient['diagnosis_type']} ({current_patient['diagnosis_location']})
+                        </p>
+                        <p style="margin: 4px 0 0 0; opacity: 0.75; font-size: 0.85rem;">
+                            Attending Oncologist: {current_patient.get('oncologist_name', 'Dr. Aris Thorne, MD')} • Stage: {current_patient.get('treatment_stage', 'Adjuvant Therapy')}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        col_p_nav1, col_p_nav2, col_p_logout = st.columns([1.5, 1.5, 1])
+        with col_p_nav1:
+            if st.button("🏠 Open My Health Dashboard", type="primary", use_container_width=True):
+                st.session_state.current_view = "dashboard"
+                st.rerun()
+        with col_p_nav2:
+            if st.button("💬 Chat with Care Companion", use_container_width=True):
+                st.session_state.current_view = "companion"
+                st.rerun()
+        with col_p_logout:
+            if st.button("🔒 Sign Out Patient", type="secondary", use_container_width=True):
+                logout_patient()
+
+        st.divider()
+        st.markdown("##### ⚡ Quick Patient Links")
+        q_cols = st.columns(4)
+        with q_cols[0]:
+            if st.button("📋 Scans & Reports", key="p_link_rep", use_container_width=True):
+                st.session_state.current_view = "reports"
+                st.rerun()
+        with q_cols[1]:
+            if st.button("📝 Log Today's Symptoms", key="p_link_sym", use_container_width=True):
+                st.session_state.current_view = "symptoms"
+                st.rerun()
+        with q_cols[2]:
+            if st.button("📈 Longitudinal Trends", key="p_link_tr", use_container_width=True):
+                st.session_state.current_view = "trends"
+                st.rerun()
+        with q_cols[3]:
+            if st.button("📤 Upload Brain MRI", key="p_link_mri", use_container_width=True):
+                st.session_state.current_view = "evaluator"
+                st.rerun()
+        return
+
+    # =========================================================================
+    # STATE A2: DOCTOR IS ALREADY LOGGED IN -> Patient Overview & Quick Inspector
     # =========================================================================
     if current_doc:
         st.markdown(
@@ -293,34 +411,37 @@ def render_doctor_login(on_success: Optional[Callable[[], None]] = None):
         return
 
     # =========================================================================
-    # STATE B: DOCTOR NOT LOGGED IN -> High-Security Authentication Portal
+    # STATE B: NO ONE LOGGED IN -> Dual-Role Portal & New Patient Registration
     # =========================================================================
     st.markdown(
         """
-        <div style="text-align: center; padding: 2rem 1rem 1rem 1rem;">
+        <div style="text-align: center; padding: 1.8rem 1rem 1rem 1rem;">
             <div style="display: inline-block; background-color: #0f766e15; border: 2px solid #0f766e; border-radius: 50%; padding: 16px; margin-bottom: 12px;">
-                <span style="font-size: 2.8rem;">🩺</span>
+                <span style="font-size: 2.8rem;">🧠</span>
             </div>
-            <h1 style="color: #0f766e; font-size: 2rem; margin-bottom: 4px; font-weight: 800;">
-                Doctor & Oncologist Clinical Authentication
+            <h1 style="color: #0f766e; font-size: 2.1rem; margin-bottom: 4px; font-weight: 800;">
+                AI-Powered Cancer Care Companion
             </h1>
-            <p style="color: #475569; font-size: 1.05rem; max-width: 650px; margin: 0 auto;">
-                Comprehensive Brain Tumor Center • Role-Based Access Control (RBAC)<br>
-                Enter your credentials or select an attending physician profile to securely review patient records and access the clinical workstation.
+            <p style="color: #475569; font-size: 1.05rem; max-width: 680px; margin: 0 auto;">
+                Sign in as an attending physician, access your personal patient portal, or register as a new patient.
             </p>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-    tab_express, tab_credentials = st.tabs([
-        "⚡ 1-Click Express Physician Login",
-        "🔑 Standard Credential Authentication"
+    tab_doc_auth, tab_patient_auth, tab_new_patient = st.tabs([
+        "👨‍⚕️ Doctor & Clinician Sign-In",
+        "👤 Existing Patient Sign-In",
+        "➕ New Patient Registration"
     ])
 
-    with tab_express:
-        st.markdown("##### Select Attending Physician to Sign In:")
-        st.caption("Simulates institutional smart card / single-sign-on (SSO) authentication for active medical staff.")
+    # -------------------------------------------------------------------------
+    # TAB 1: DOCTOR & CLINICIAN AUTHENTICATION
+    # -------------------------------------------------------------------------
+    with tab_doc_auth:
+        st.markdown("##### 🩺 Select Attending Physician to Sign In:")
+        st.caption("1-Click hospital smart-card simulation or credential authentication.")
 
         cols = st.columns(len(CLINICIAN_PROFILES))
         for idx, doc in enumerate(CLINICIAN_PROFILES):
@@ -349,31 +470,24 @@ def render_doctor_login(on_success: Optional[Callable[[], None]] = None):
                     if on_success:
                         on_success()
                     else:
+                        st.session_state.current_view = "clinician"
                         st.rerun()
 
-    with tab_credentials:
-        st.markdown("##### Clinician NPI & Institutional Login")
-        with st.form("doctor_credential_form"):
-            email_in = st.text_input("Institutional Email or Clinician ID", value="dr.thorne@hospital.org", placeholder="dr.name@hospital.org")
-            pass_in = st.text_input("Password / Security Token", type="password", value="neuro2026", placeholder="Enter secure password")
-            dept_in = st.selectbox(
-                "Clinical Department",
-                options=[
-                    "Department of Neuro-Oncology",
-                    "Division of Neurosurgery",
-                    "Department of Neuroradiology",
-                    "Department of Radiation Oncology"
-                ]
-            )
-            remember_me = st.checkbox("Remember this workstation session for 12 hours", value=True)
-
-            submit_login = st.form_submit_button("🔐 Authenticate & Enter Workstation", type="primary", use_container_width=True)
-
-            if submit_login:
-                if not email_in or not pass_in:
-                    st.error("Please provide both Clinician ID and Password.")
-                else:
-                    # Match to profile or generate custom clinician profile
+        with st.expander("🔑 Clinician Credentials & NPI Sign-In"):
+            with st.form("doctor_credential_form"):
+                email_in = st.text_input("Institutional Email or Clinician ID", value="dr.thorne@hospital.org")
+                pass_in = st.text_input("Password / Security Token", type="password", value="neuro2026")
+                dept_in = st.selectbox(
+                    "Clinical Department",
+                    options=[
+                        "Department of Neuro-Oncology",
+                        "Division of Neurosurgery",
+                        "Department of Neuroradiology",
+                        "Department of Radiation Oncology"
+                    ]
+                )
+                submit_doc = st.form_submit_button("🔐 Sign In Clinician", type="primary", use_container_width=True)
+                if submit_doc:
                     matched_doc = next((d for d in CLINICIAN_PROFILES if d["email"].lower() == email_in.lower()), None)
                     if not matched_doc:
                         matched_doc = {
@@ -389,17 +503,208 @@ def render_doctor_login(on_success: Optional[Callable[[], None]] = None):
                             "status": "Attending on Service"
                         }
                     login_doctor(matched_doc)
-                    st.success(f"Authentication successful for {matched_doc['full_name']}.")
+                    st.success(f"Authenticated as {matched_doc['full_name']}.")
                     if on_success:
                         on_success()
                     else:
+                        st.session_state.current_view = "clinician"
+                        st.rerun()
+
+    # -------------------------------------------------------------------------
+    # TAB 2: EXISTING PATIENT SIGN-IN
+    # -------------------------------------------------------------------------
+    with tab_patient_auth:
+        st.markdown("##### 👤 1-Click Patient Sign-In:")
+        st.caption("Select your patient record below to securely enter your Patient Digital Twin Portal.")
+
+        all_pts = db.get_all_patients()
+        pt_cols = st.columns(min(3, max(1, len(all_pts))))
+        for idx, pt in enumerate(all_pts):
+            c_idx = idx % len(pt_cols)
+            with pt_cols[c_idx]:
+                st.markdown(
+                    f"""
+                    <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 1.1rem; text-align: center; min-height: 200px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+                        <span style="font-size: 2.2rem;">👤</span>
+                        <h4 style="margin: 6px 0 2px 0; color: #0f172a; font-size: 1.05rem;">{pt['full_name']}</h4>
+                        <span style="color: #0d9488; font-size: 0.85rem; font-weight: 700;">MRN: {pt['mrn']}</span>
+                        <p style="margin: 6px 0; color: #64748b; font-size: 0.8rem; line-height: 1.3;">
+                            Age {pt['age']} • {pt['diagnosis_type']}<br>
+                            <em>{pt['diagnosis_location']}</em>
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+                if st.button(f"Sign In as {pt['full_name'].split()[0]}", key=f"quick_patient_login_{pt['mrn']}", type="primary", use_container_width=True):
+                    login_patient(pt)
+                    st.success(f"Signed in as {pt['full_name']}.")
+                    st.session_state.current_view = "dashboard"
+                    st.rerun()
+
+        with st.expander("🔑 Sign In by Medical Record Number (MRN) or Name"):
+            with st.form("patient_mrn_login_form"):
+                in_mrn = st.text_input("Enter your MRN (e.g. 0042) or Full Name:", placeholder="0042")
+                in_pin = st.text_input("Access PIN / Security Code (default: 1234):", type="password", value="1234")
+                submit_pt_mrn = st.form_submit_button("🔓 Open My Patient Portal", type="primary", use_container_width=True)
+
+                if submit_pt_mrn:
+                    matched = None
+                    clean_in = in_mrn.strip().lower()
+                    for p in all_pts:
+                        if p["mrn"].lower() == clean_in or clean_in in p["full_name"].lower():
+                            matched = p
+                            break
+                    if matched:
+                        login_patient(matched)
+                        st.success(f"Welcome back, {matched['full_name']}!")
+                        st.session_state.current_view = "dashboard"
+                        st.rerun()
+                    else:
+                        st.error("Patient record not found. Please verify your MRN or register below as a new patient.")
+
+    # -------------------------------------------------------------------------
+    # TAB 3: NEW PATIENT REGISTRATION / SIGN UP
+    # -------------------------------------------------------------------------
+    with tab_new_patient:
+        st.markdown("##### ➕ Register New Patient Profile")
+        st.caption("New patients can register here to instantly generate a Personalized Digital Twin, baseline imaging profile, and care companion.")
+
+        with st.form("new_patient_registration_form", clear_on_submit=False):
+            col_np1, col_np2 = st.columns(2)
+            with col_np1:
+                np_name = st.text_input("Patient Full Name *", placeholder="e.g. Jane Foster")
+                np_age = st.number_input("Age", min_value=1, max_value=120, value=48)
+                np_gender = st.selectbox("Gender", options=["Female", "Male", "Non-Binary", "Prefer not to say"], index=0)
+                np_diagnosis = st.selectbox(
+                    "Primary Diagnosis *",
+                    options=[
+                        "Glioblastoma (WHO Grade 4)",
+                        "Anaplastic Astrocytoma (WHO Grade 3)",
+                        "Oligodendroglioma (WHO Grade 2/3)",
+                        "Diffuse Astrocytoma (WHO Grade 2)",
+                        "High-Grade Glioma (Recurrent)",
+                        "Meningioma",
+                        "Other CNS Neoplasm"
+                    ],
+                    index=0
+                )
+                np_location = st.selectbox(
+                    "Tumor Anatomical Location *",
+                    options=[
+                        "Left temporal lobe",
+                        "Right temporal lobe",
+                        "Left frontal lobe",
+                        "Right frontal lobe",
+                        "Left parietal lobe",
+                        "Right parietal lobe",
+                        "Occipital lobe",
+                        "Cerebellar hemisphere",
+                        "Thalamus / Deep structures"
+                    ],
+                    index=0
+                )
+
+            with col_np2:
+                np_diag_date = st.date_input("Initial Diagnosis Date", value=datetime.now())
+                np_next_visit = st.date_input("Next Scheduled Clinical Visit", value=datetime.now() + timedelta(days=14))
+                np_kps = st.slider(
+                    "Baseline Functional KPS Score",
+                    min_value=50,
+                    max_value=100,
+                    value=90,
+                    step=5,
+                    help="Karnofsky Performance Scale: 90-100 = Normal activity; 70-80 = Able to care for self; 50-60 = Requires assistance."
+                )
+                np_stage = st.selectbox(
+                    "Treatment Phase",
+                    options=[
+                        "Post-Surgical / Adjuvant Stupp Maintenance",
+                        "Newly Diagnosed (Pre-Surgical)",
+                        "Concurrent Chemoradiotherapy (RT + TMZ)",
+                        "Surveillance & Long-Term Monitoring",
+                        "Recurrence Evaluation"
+                    ],
+                    index=0
+                )
+                np_doctor = st.selectbox(
+                    "Assigned Attending Oncologist",
+                    options=[
+                        "Dr. Aris Thorne, MD, PhD (Neuro-Oncology)",
+                        "Dr. Elena Rostova, MD (Surgical Neuro-Oncology)",
+                        "Dr. Marcus Vance, MD (Neuroradiology)"
+                    ],
+                    index=0
+                )
+                np_email = st.text_input("Contact Email", placeholder="patient@example.com")
+                np_pin = st.text_input("Create 4-Digit Access PIN", value="1234", type="password")
+
+            st.markdown("###### 💊 Baseline Prescribed Medication Regimen")
+            col_med1, col_med2 = st.columns(2)
+            with col_med1:
+                np_keppra = st.selectbox(
+                    "Levetiracetam (Keppra) Dosage (Seizure Prophylaxis - 08:00 AM & 08:00 PM):",
+                    options=["750 mg Oral Tablet", "500 mg Oral Tablet", "1000 mg Oral Tablet"],
+                    index=0
+                )
+            with col_med2:
+                np_tmz = st.selectbox(
+                    "Temozolomide (Temodar) Dosage (Chemotherapy - 09:30 PM Bedtime):",
+                    options=["150 mg/m² Oral Capsule", "100 mg/m² Oral Capsule", "200 mg/m² Oral Capsule"],
+                    index=0
+                )
+
+            submit_reg = st.form_submit_button("🚀 Register & Log In to Patient Portal", type="primary", use_container_width=True)
+
+            if submit_reg:
+                if not np_name.strip():
+                    st.error("Please provide the patient's full name.")
+                else:
+                    new_pt_payload = {
+                        "full_name": np_name.strip(),
+                        "age": int(np_age),
+                        "gender": np_gender,
+                        "diagnosis_type": np_diagnosis,
+                        "diagnosis_location": np_location,
+                        "diagnosis_date": np_diag_date.strftime("%Y-%m-%d"),
+                        "next_visit_date": np_next_visit.strftime("%Y-%m-%d"),
+                        "keppra_dosage": np_keppra,
+                        "tmz_dosage": np_tmz,
+                        "baseline_kps": int(np_kps),
+                        "treatment_stage": np_stage,
+                        "oncologist_name": np_doctor.split("(")[0].strip(),
+                        "nurse_name": "Sarah Jensen, RN",
+                        "email": np_email.strip() or f"{np_name.strip().lower().replace(' ', '.')}@healthmail.org",
+                        "pin": np_pin.strip() or "1234"
+                    }
+                    new_pt = db.create_patient(new_pt_payload)
+
+                    # Ensure new patient is added to all doctors' assigned cohorts
+                    for doc in CLINICIAN_PROFILES:
+                        if new_pt["mrn"] not in doc.get("assigned_mrns", []):
+                            doc.setdefault("assigned_mrns", []).append(new_pt["mrn"])
+
+                    doc_sess = st.session_state.get("doctor_session", {})
+                    if doc_sess.get("logged_in"):
+                        active_doc = doc_sess.get("doctor") or doc_sess.get("profile")
+                        if active_doc and new_pt["mrn"] not in active_doc.get("assigned_mrns", []):
+                            active_doc.setdefault("assigned_mrns", []).append(new_pt["mrn"])
+
+                    st.session_state.active_patient_mrn = new_pt["mrn"]
+                    login_patient(new_pt)
+                    st.toast(f"✅ Welcome {new_pt['full_name']}! Your MRN is {new_pt['mrn']}.", icon="🎉")
+                    st.success(f"Patient account created successfully! Medical Record Number (MRN): **{new_pt['mrn']}**")
+                    if on_success:
+                        on_success()
+                    else:
+                        st.session_state.current_view = "dashboard"
                         st.rerun()
 
     st.markdown("---")
     st.markdown(
         """
         <div style="text-align: center; color: #94a3b8; font-size: 0.8rem;">
-            🔒 HIPAA & HITECH Compliant Clinical Interface • 256-Bit End-to-End Encrypted Session • Audit Logging Enabled
+            🔒 HIPAA & HITECH Compliant Clinical Interface • 256-Bit End-to-End Encrypted Session • Patient Data Protected
         </div>
         """,
         unsafe_allow_html=True

@@ -6,15 +6,104 @@ clinical severity tagging, and 11-dimensional L2-normalized semantic embedding v
 
 import re
 import math
+import importlib
 import numpy as np
 from typing import Dict, Any, List, Optional, Tuple
 
-try:
-    from transformers import AutoTokenizer, AutoModel
-    import torch
-    TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    TRANSFORMERS_AVAILABLE = False
+TRANSFORMERS_AVAILABLE = None
+
+
+def extract_text_from_file(uploaded_file) -> str:
+    """
+    Extracts plain text from clinical document uploads supporting:
+    - Adobe PDF (.pdf) using pypdf
+    - Microsoft Word (.docx) using python-docx
+    - Plain Text / Markdown (.txt, .md)
+    - Structured Medical JSON (.json)
+    """
+    if uploaded_file is None:
+        return ""
+
+    filename = getattr(uploaded_file, "name", "").lower()
+
+    # 1. PDF Document Parsing
+    if filename.endswith(".pdf"):
+        try:
+            pypdf = importlib.import_module("pypdf")
+            uploaded_file.seek(0)
+            reader = pypdf.PdfReader(uploaded_file)
+            extracted_pages = []
+            for i, page in enumerate(reader.pages):
+                page_txt = page.extract_text()
+                if page_txt and page_txt.strip():
+                    extracted_pages.append(page_txt.strip())
+            if extracted_pages:
+                return "\n\n".join(extracted_pages)
+        except Exception:
+            pass
+        # Resilient binary stream string recovery for PDFs
+        try:
+            uploaded_file.seek(0)
+            raw = uploaded_file.read()
+            text_chunks = re.findall(r"\(([^\(\)\\\r\n]{2,})\)", raw.decode("latin-1", errors="ignore"))
+            if text_chunks and len(text_chunks) >= 3:
+                return " ".join([c.strip() for c in text_chunks if len(c.strip()) > 1])
+        except Exception:
+            pass
+
+    # 2. Microsoft Word DOCX Parsing
+    elif filename.endswith(".docx"):
+        try:
+            docx = importlib.import_module("docx")
+            uploaded_file.seek(0)
+            doc = docx.Document(uploaded_file)
+            parts = []
+            for p in doc.paragraphs:
+                if p.text.strip():
+                    parts.append(p.text.strip())
+            for t in doc.tables:
+                for row in t.rows:
+                    row_txt = " | ".join([cell.text.strip() for cell in row.cells if cell.text.strip()])
+                    if row_txt:
+                        parts.append(row_txt)
+            if parts:
+                return "\n\n".join(parts)
+        except Exception:
+            pass
+
+    # 3. Structured Clinical JSON
+    elif filename.endswith(".json"):
+        try:
+            import json
+            uploaded_file.seek(0)
+            raw = uploaded_file.read()
+            data = json.loads(raw.decode("utf-8", errors="replace"))
+            if isinstance(data, dict):
+                report_parts = []
+                for k in ["title", "examination", "clinical_indication", "indication", "technique", "findings", "impression", "conclusion", "diagnosis", "summary", "notes", "raw_text", "report"]:
+                    if k in data and data[k]:
+                        report_parts.append(f"{k.upper()}:\n{data[k]}")
+                if report_parts:
+                    return "\n\n".join(report_parts)
+                return "\n".join(f"{k}: {v}" for k, v in data.items())
+            elif isinstance(data, list):
+                return "\n".join(str(item) for item in data)
+        except Exception:
+            pass
+
+    # 4. Standard Text / Markdown / Fallback
+    try:
+        uploaded_file.seek(0)
+        raw_bytes = uploaded_file.read()
+        try:
+            return raw_bytes.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            try:
+                return raw_bytes.decode("latin-1").strip()
+            except Exception:
+                return raw_bytes.decode("utf-8", errors="replace").strip()
+    except Exception as e:
+        return f"Error reading document: {e}"
 
 
 class ClinicalNLPEngine:
@@ -28,8 +117,9 @@ class ClinicalNLPEngine:
         self.tokenizer = None
         self.model = None
 
-        if not offline and TRANSFORMERS_AVAILABLE:
+        if not offline:
             try:
+                from transformers import AutoTokenizer, AutoModel
                 self.tokenizer = AutoTokenizer.from_pretrained(model_name)
                 self.model = AutoModel.from_pretrained(model_name)
                 self.model.eval()
@@ -63,91 +153,179 @@ class ClinicalNLPEngine:
 
     def extract_entities(self, text: str) -> Dict[str, Any]:
         """
-        Extracts structured diagnostic clinical entities from free-text radiology reports.
+        Extracts structured diagnostic clinical entities from free-text radiology and clinical reports:
+        - Tumor anatomical location and surgical margin status
+        - Enhancing tumor 2D/3D dimensions (cm)
+        - Margin invasiveness and contrast enhancement pattern
+        - Vasogenic edema extent and FLAIR hyperintensity
+        - Mass effect and ventricular effacement
+        - Midline shift magnitude (mm)
+        - DSC-MRI perfusion (rCBV)
+        - Histology / WHO grade
+        - Clinical Impression / Conclusion narrative
         """
         text_lower = text.lower()
 
-        # 1. Tumor Location
-        location = "Temporal Lobe"
+        # 1. Tumor Anatomical Location
+        location = "Left Temporal Lobe (resection margin)"
         loc_patterns = [
-            (r"left\s+temporal\s+lobe(?:\s+resection\s+cavity)?", "Left temporal lobe (resection margin)"),
-            (r"right\s+temporal\s+lobe", "Right temporal lobe"),
+            (r"left\s+(?:fronto-?temporal|frontotemporal)\s+(?:lobe|region|area)", "Left frontotemporal region"),
+            (r"right\s+(?:fronto-?temporal|frontotemporal)\s+(?:lobe|region|area)", "Right frontotemporal region"),
+            (r"left\s+(?:temporo-?parietal|temporoparietal)\s+(?:lobe|region|area)", "Left temporoparietal region"),
+            (r"right\s+(?:temporo-?parietal|temporoparietal)\s+(?:lobe|region|area)", "Right temporoparietal region"),
+            (r"left\s+temporal\s+lobe(?:\s+resection\s+cavity|\s+margin)?", "Left temporal lobe (resection margin)"),
+            (r"right\s+temporal\s+lobe(?:\s+resection\s+cavity|\s+margin)?", "Right temporal lobe (resection margin)"),
+            (r"left\s+frontal\s+lobe", "Left frontal lobe"),
+            (r"right\s+frontal\s+lobe", "Right frontal lobe"),
             (r"frontal\s+lobe", "Frontal lobe"),
+            (r"left\s+parietal\s+lobe", "Left parietal lobe"),
+            (r"right\s+parietal\s+lobe", "Right parietal lobe"),
             (r"parietal\s+lobe", "Parietal lobe"),
+            (r"left\s+occipital\s+lobe", "Left occipital lobe"),
+            (r"right\s+occipital\s+lobe", "Right occipital lobe"),
             (r"occipital\s+lobe", "Occipital lobe"),
-            (r"cerebellum|cerebellar", "Cerebellar hemisphere"),
+            (r"cerebell(?:um|ar)\s*(?:hemisphere)?", "Cerebellar hemisphere"),
+            (r"posterior\s+fossa", "Posterior fossa"),
+            (r"brainstem|pons|medulla", "Brainstem"),
+            (r"thalamus|thalamic", "Thalamus"),
+            (r"corpus\s+callosum", "Corpus callosum"),
+            (r"insula|insular", "Insular cortex"),
+            (r"basal\s+ganglia", "Basal ganglia"),
         ]
         for pattern, label in loc_patterns:
             if re.search(pattern, text_lower):
                 location = label
                 break
 
-        # 2. Margins & Enhancement
-        margins = "Circumscribed margins"
-        if "infiltrating" in text_lower or "ill-defined" in text_lower:
+        # Check if resection cavity is explicitly noted
+        if ("resection cavity" in text_lower or "resection margin" in text_lower or "surgical bed" in text_lower) and "resection" not in location.lower():
+            location = f"{location} (resection margin)"
+
+        # 2. Enhancing Dimensions (e.g. 1.4 x 1.8 cm or 2.3 cm)
+        dimensions = "N/A"
+        dim_3d = re.search(r"(\d+(?:\.\d+)?)\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?)\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?)\s*cm", text_lower)
+        dim_2d = re.search(r"(\d+(?:\.\d+)?)\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?)\s*cm", text_lower)
+        dim_1d = re.search(r"(?:measuring|measured\s+at|measures|diameter\s+of)\s+(\d+(?:\.\d+)?)\s*cm", text_lower)
+        if dim_3d:
+            dimensions = f"{dim_3d.group(1)} x {dim_3d.group(2)} x {dim_3d.group(3)}"
+        elif dim_2d:
+            dimensions = f"{dim_2d.group(1)} x {dim_2d.group(2)}"
+        elif dim_1d:
+            dimensions = f"{dim_1d.group(1)}"
+
+        # 3. Margins & Invasiveness
+        margins = "Well-circumscribed margins"
+        if "infiltrating" in text_lower or "ill-defined" in text_lower or "irregular margins" in text_lower:
             margins = "Infiltrating / Ill-defined margins"
-        elif "residual enhancement" in text_lower or "enhancing residual" in text_lower:
+        elif "residual enhancement" in text_lower or "enhancing residual" in text_lower or "marginal enhancement" in text_lower:
             margins = "Mild residual enhancing margins"
-        elif "circumscribed" in text_lower or "well-defined" in text_lower:
+        elif "circumscribed" in text_lower or "well-defined" in text_lower or "discrete" in text_lower:
             margins = "Well-circumscribed margins"
+        elif "nodular" in text_lower:
+            margins = "Nodular / Focal margins"
 
+        # 4. Contrast Enhancement Pattern
         enhancement = "Mild"
-        if "marked rim enhancement" in text_lower or "intense enhancement" in text_lower:
+        if "marked rim enhancement" in text_lower or "intense rim" in text_lower or "thick rim" in text_lower or "ring enhancement" in text_lower:
             enhancement = "Marked Rim Enhancement"
-        elif "punctate" in text_lower or "patchy" in text_lower:
-            enhancement = "Patchy / Punctate Enhancement"
-        elif "interval reduction in enhancing" in text_lower or "decreased enhancement" in text_lower:
+        elif "punctate" in text_lower or "patchy" in text_lower or "heterogeneous enhancement" in text_lower:
+            enhancement = "Patchy / Heterogeneous Enhancement"
+        elif "interval reduction in enhancing" in text_lower or "decreased enhancement" in text_lower or "fading" in text_lower:
             enhancement = "Decreased / Fading Enhancement"
+        elif "non-enhancing" in text_lower or "no significant enhancement" in text_lower:
+            enhancement = "Non-enhancing / Minimal"
 
-        # 3. Mass effect & Midline shift
+        # 5. Mass Effect & Ventricles
         mass_effect = "Absent / None"
-        if "severe mass effect" in text_lower or "herniation" in text_lower:
+        if "severe mass effect" in text_lower or "herniation" in text_lower or "cisternal effacement" in text_lower:
             mass_effect = "Severe (Impending herniation / cisternal effacement)"
-        elif "moderate mass effect" in text_lower or "ventricular effacement" in text_lower or "partial effacement" in text_lower:
+        elif "moderate mass effect" in text_lower or "ventricular effacement" in text_lower or "partial effacement" in text_lower or "ventricular compression" in text_lower:
             mass_effect = "Moderate (Ventricular effacement)"
+        elif "mild mass effect" in text_lower or "mild sulcal effacement" in text_lower or "slight compression" in text_lower:
+            mass_effect = "Mild (Localized sulcal effacement)"
         elif "no significant mass effect" in text_lower or "no mass effect" in text_lower:
             mass_effect = "Absent / None"
 
+        # 6. Midline Shift Magnitude
         midline_shift = "None (0 mm)"
-        shift_match = re.search(r"(\d+(?:\.\d+)?)\s*mm\s*(?:right|left|rightward|leftward)?\s*midline\s+shift", text_lower)
-        if shift_match:
+        shift_match1 = re.search(r"(\d+(?:\.\d+)?)\s*mm\s*(?:of\s+)?(?:right|left|rightward|leftward)?\s*midline\s+shift", text_lower)
+        shift_match2 = re.search(r"midline\s+shift\s*(?:of\s+|measuring\s+|is\s+|approx(?:\.|imately)?\s*)?(\d+(?:\.\d+)?)\s*mm", text_lower)
+        shift_match3 = re.search(r"subfalcine\s+shift\s*(?:of\s+)?(\d+(?:\.\d+)?)\s*mm", text_lower)
+        matched_shift = shift_match1 or shift_match2 or shift_match3
+        if matched_shift:
             try:
-                shift_num = float(shift_match.group(1))
+                shift_num = float(matched_shift.group(1))
                 if shift_num > 0.1:
                     midline_shift = f"{shift_num} mm shift"
                 else:
                     midline_shift = "None (0 mm)"
             except ValueError:
                 midline_shift = "None (0 mm)"
-        elif "no midline shift" in text_lower or "midline is intact" in text_lower or "symmetric" in text_lower:
+        elif "no midline shift" in text_lower or "midline is intact" in text_lower or "midline is centered" in text_lower or "symmetric" in text_lower:
             midline_shift = "None (0 mm)"
 
-        # 4. Perfusion / rCBV
+        # 7. DSC Perfusion / rCBV
         rcbv = 1.50
-        rcbv_match = re.search(r"rcbv\s+(?:is\s+)?(?:reduced\s+at\s+|elevated\s+at\s+|measuring\s+|measured\s+at\s+|measured\s+|of\s+)?(\d+(?:\.\d+)?)", text_lower)
+        rcbv_match = re.search(
+            r"(?:relative\s+cerebral\s+blood\s+volume|r?cbv|perfusion\s+(?:ratio|index|value)?)\s*[:=~is\s]*(?:reduced\s+at\s+|elevated\s+at\s+|measuring\s+|measured\s+at\s+|measured\s+|of\s+)?(\d+(?:\.\d+)?)",
+            text_lower
+        )
         if rcbv_match:
             try:
                 rcbv = float(rcbv_match.group(1))
             except ValueError:
-                pass
+                rcbv = 1.50
+        elif "hypoperfusion" in text_lower or "low rcbv" in text_lower:
+            rcbv = 1.35
+        elif "hyperperfusion" in text_lower or "elevated rcbv" in text_lower:
+            rcbv = 2.25
 
-        # 5. Edema
+        # 8. Edema
         edema = "Stable FLAIR vasogenic edema"
-        if "moderate flair hyperintensity" in text_lower or "moderate edema" in text_lower:
+        if "severe extensive edema" in text_lower or "severe edema" in text_lower or "extensive flair" in text_lower:
+            edema = "Severe extensive FLAIR edema"
+        elif "moderate flair hyperintensity" in text_lower or "moderate edema" in text_lower or "moderate vasogenic" in text_lower:
             edema = "Moderate FLAIR vasogenic edema"
-        elif "mild edema" in text_lower:
-            edema = "Mild localized edema"
-        elif "severe edema" in text_lower:
-            edema = "Severe extensive edema"
+        elif "mild edema" in text_lower or "mild flair" in text_lower:
+            edema = "Mild localized vasogenic edema"
+        elif "resolved edema" in text_lower or "no edema" in text_lower:
+            edema = "Minimal / Resolved edema"
+
+        # 9. Histology / WHO Grade Detection
+        histology = "Glioblastoma (WHO Grade 4)"
+        if "oligodendroglioma" in text_lower:
+            histology = "Oligodendroglioma (IDH-mutant, 1p/19q co-deleted)"
+        elif "astrocytoma" in text_lower:
+            if "grade 4" in text_lower or "grade iv" in text_lower:
+                histology = "Astrocytoma (IDH-mutant, WHO Grade 4)"
+            elif "grade 3" in text_lower or "grade iii" in text_lower:
+                histology = "Anaplastic Astrocytoma (WHO Grade 3)"
+            else:
+                histology = "Diffuse Astrocytoma (WHO Grade 2)"
+        elif "glioblastoma" in text_lower or "gbm" in text_lower:
+            histology = "Glioblastoma (WHO Grade 4)"
+
+        # 10. Extract Clinical Impression / Conclusion block
+        impression = ""
+        imp_match = re.search(r"(?:IMPRESSION|CONCLUSION|SUMMARY):\s*([\s\S]+?)(?:\n\n[A-Z\s]{4,}:|$)", text, re.IGNORECASE)
+        if imp_match:
+            impression = imp_match.group(1).strip()
+        else:
+            # First 2 sentences of findings
+            sentences = [s.strip() for s in text.split(".") if len(s.strip()) > 15]
+            impression = ". ".join(sentences[:2]) + "." if sentences else text[:120]
 
         return {
             "tumor_location": location,
+            "enhancing_dimensions_cm": dimensions,
             "margins": margins,
             "contrast_enhancement": enhancement,
             "mass_effect": mass_effect,
             "midline_shift": midline_shift,
             "rcbv": rcbv,
             "edema": edema,
+            "histology_grade": histology,
+            "clinical_impression": impression
         }
 
     @staticmethod
@@ -195,7 +373,14 @@ class ClinicalNLPEngine:
         tl = out.get("tumor_location", "Left temporal lobe")
         out["tumor_location"] = str(tl)
 
+        # enhancing_dimensions_cm
+        out["enhancing_dimensions_cm"] = str(out.get("enhancing_dimensions_cm", "N/A"))
+
+        # histology_grade
+        out["histology_grade"] = str(out.get("histology_grade", "Glioblastoma (WHO Grade 4)"))
+
         return out
+
 
     def translate_to_plain_language(
         self,
@@ -227,46 +412,46 @@ class ClinicalNLPEngine:
         # --- 1. SPANISH (ESPAÑOL) ---
         if lang == "es":
             if is_improving and is_psp:
-                h = "Su última resonancia magnética (MRI) muestra noticias muy alentadoras. En general, los hallazgos confirman que su tratamiento está protegiendo activamente su cerebro."
+                h = "Aquí está lo que significa la imagen de tu cerebro, explicado de forma súper sencilla como un cuento para un niño de 10 años: Imagina tu cerebro como un maravilloso centro de control. ¡Tu última foto trae noticias muy felices! Las medicinas que tomas están funcionando como superhéroes guardianes protegiendo tu cerebro."
             elif is_improving:
-                h = "Su última resonancia magnética muestra una reconfortante estabilidad clínica sin nueva actividad tumoral agresiva."
+                h = "Aquí está lo que significa tu imagen en palabras sencillas: Tu cerebro es como un centro de control genial y todo se ve muy tranquilo y en paz."
             else:
-                h = "Su equipo médico ha revisado detalladamente su resonancia y continuará supervisando de cerca la evolución."
+                h = "Aquí está lo que significa tu imagen: Tu equipo de doctores revisó con mucho cariño las fotos de tu cerebro y están cuidando muy bien de ti."
 
-            s = f"En la zona de {loc_desc}, el área activa del tumor ha disminuido de tamaño o se mantiene tranquila." if is_improving else f"En {loc_desc}, la lesión tratada se mantiene estable."
-            p = "Existe una leve hinchazón de líquidos (edema) esperada tras la radioterapia, sin presión peligrosa sobre el cerebro sano." if not has_pressure else f"Se observa algo de presión ({entities['midline_shift']}), la cual su médico vigilará con medicación como Dexametasona."
-            psp = f"Las mediciones de flujo sanguíneo (rCBV: {entities['rcbv']:.2f}) confirman que los cambios corresponden a una cicatrización benigna y positiva del tratamiento (pseudoprogresión)." if is_psp else ""
-            c = "Continúe tomando sus medicamentos según las indicaciones prescritas y manténgase bien hidratado."
+            s = f"En la zona de {loc_desc}, la manchita tratada se ha hecho visiblemente más pequeña y está tranquila." if is_improving else f"En {loc_desc}, la zona tratada se mantiene estable."
+            p = "Solo hay un poquito de hinchazón leve alrededor, como cuando te raspas la rodilla y se cura poco a poco. ¡No hay ninguna presión peligrosa sobre las partes sanas de tu cerebro!" if not has_pressure else f"Hay un poquito de presión ({entities['midline_shift']}), y los doctores te dan medicina suave para ayudar a que esa hinchazón desaparezca."
+            psp = f"La prueba de flujo de sangre confirma que tu cuerpo está limpiando células viejas y sanando con mucha fuerza (pseudoprogresión benigna)." if is_psp else ""
+            c = "¡Estás haciendo un trabajo increíble! Sigue tomando tus medicinas a tiempo, bebe mucha agua y descansa bien."
             return " ".join([part for part in [h, s, p, psp, c] if part])
 
         # --- 2. HINDI (हिंदी) ---
         elif lang == "hi":
             if is_improving and is_psp:
-                h = "आपके नवीनतम एमआरआई स्कैन में बहुत उत्साहजनक और सुकून देने वाले परिणाम मिले हैं। उपचार सक्रिय रूप से आपके मस्तिष्क की सुरक्षा कर रहा है।"
+                h = "यहाँ आपके मस्तिष्क के स्कैन का अर्थ 10 साल के बच्चे के लिए एक प्यारी कहानी की तरह समझाया गया है: अपने मस्तिष्क को एक अद्भुत नियंत्रण केंद्र समझें। आपकी नई तस्वीर बहुत अच्छी खबर लाई है! आपकी दवाएं सुपरहीरो रक्षकों की तरह आपके मस्तिष्क की रक्षा कर रही हैं।"
             elif is_improving:
-                h = "आपका नया स्कैन स्थिरता दर्शाता है। ट्यूमर में कोई नई आक्रामक गतिविधि नहीं देखी गई है।"
+                h = "यहाँ आपके स्कैन का अर्थ सरल शब्दों में है: आपका मस्तिष्क पूरी तरह से शांत और स्थिर है। सब कुछ बहुत अच्छे से काम कर रहा है।"
             else:
-                h = "आपकी मेडिकल टीम ने आपकी रिपोर्ट की सावधानीपूर्वक समीक्षा की है और नियमित निगरानी जारी रखेगी।"
+                h = "आपकी डॉक्टर टीम ने आपके मस्तिष्क की तस्वीरों की बहुत ध्यान से जाँच की है और वे आपका बहुत अच्छे से ख्याल रख रहे हैं।"
 
-            s = f"{loc_desc} क्षेत्र में सक्रिय ट्यूमर का आकार कम हुआ है या स्थिर बना हुआ है।"
-            p = "इलाज किए गए हिस्से के चारों ओर हल्की सामान्य तरल सूजन (एडिमा) है, लेकिन स्वस्थ मस्तिष्क पर कोई खतरनाक दबाव नहीं है।" if not has_pressure else f"हल्का दबाव ({entities['midline_shift']}) देखा गया है जिसे नियंत्रित करने के लिए डॉक्टर दवाएं समायोजित कर सकते हैं।"
-            psp = f"रक्त परिसंचरण माप (rCBV: {entities['rcbv']:.2f}) से पुष्टि होती है कि यह सकारात्मक उपचार प्रभाव (स्यूडोप्रोग्रेशन) है, ट्यूमर की वापसी नहीं।" if is_psp else ""
-            c = "कृपया अपनी दवाएं समय पर लेते रहें और पर्याप्त पानी पिएं। किसी भी नए लक्षण पर अपनी ऑन्कोलॉजी नर्स से संपर्क करें।"
+            s = f"{loc_desc} क्षेत्र में वह हिस्सा छोटा हो गया है और बिल्कुल शांत है।"
+            p = "इसके चारों ओर बस थोड़ी सी हल्की सूजन है, बिल्कुल वैसे जैसे घुटने पर खरोंच लगने के बाद ठीक होते समय होती है। आपके स्वस्थ मस्तिष्क पर कोई दबाव नहीं है!" if not has_pressure else f"हल्का सा दबाव ({entities['midline_shift']}) है, जिसे कम करने के लिए डॉक्टर दवा दे रहे हैं।"
+            psp = f"रक्त प्रवाह की जाँच बताती है कि आपका शरीर पुरानी कोशिकाओं को साफ कर रहा है और मजबूत हो रहा है।" if is_psp else ""
+            c = "आप बहुत अच्छा कर रहे हैं! अपनी दवाएं समय पर लें, खूब पानी पिएं और अच्छी नींद लें।"
             return " ".join([part for part in [h, s, p, psp, c] if part])
 
         # --- 3. MANDARIN (中文) ---
         elif lang == "zh":
             if is_improving and is_psp:
-                h = "您最新的脑部核磁共振（MRI）检查带来了非常令人鼓舞的好消息。整体结果显示，您的抗癌治疗正在积极有效地发挥保护作用。"
+                h = "这里是用10岁小朋友也能完全听懂的故事来解释你的脑部照片：把你的大脑想象成一个神奇的指挥中心。你最新的照片带来了非常棒的好消息！你服用的药物就像超级英雄小卫士一样，在全力保护你的大脑。"
             elif is_improving:
-                h = "最新的核磁共振结果显示肿瘤区域保持良好稳定，未见异常活跃新生迹象。"
+                h = "用简单的话来说：你的大脑指挥中心非常平和安宁，那个小斑点很听话，没有任何调皮的新活动。"
             else:
-                h = "您的医疗专家团队已经仔细审查了最新扫描结果，并将继续对各项细节进行细致随访。"
+                h = "你的医生专家团队非常细心地查看了你的脑部照片，他们像守护天使一样在细心守护着你的大脑指挥中心。"
 
-            s = f"在{loc_desc}部位，原肿瘤活跃范围明显缩小或维持稳定。"
-            p = "手术治疗区周围仅有轻微预期的组织水肿，并未对周围健康的脑组织构成危险压迫，左右脑对称平衡良好。" if not has_pressure else f"存在一定程度的压力（中线移位：{entities['midline_shift']}），医疗团队可能会调整地塞米松等药物以缓解水肿。"
-            psp = f"局部血流灌注评估（rCBV: {entities['rcbv']:.2f}）证实，这些变化主要属于放化疗后的积极组织修复反应（假性进展），而非肿瘤复发。" if is_psp else ""
-            c = "请继续按照处方准时服用药物，保持充足饮水和良好作息。如感到任何不适请随时联系您的主管护士。"
+            s = f"在{loc_desc}部位，那个小斑点明显变小了，看起来安静又乖巧。"
+            p = "周围只有一点点很轻微的组织水肿，就像你膝盖擦破皮后正在结痂愈合时的小小肿胀一样。最棒的是，对周围健康的脑组织没有任何危险的压迫！" if not has_pressure else f"存在一点点小压力（中线移位：{entities['midline_shift']}），医生会用温和的药物帮助消肿。"
+            psp = f"血流检查证实，你的身体正在清理旧细胞并变得更加强壮（这是治疗起效的积极修复反应）。" if is_psp else ""
+            c = "你表现得太棒了！请按时吃药，多喝水，好好休息，保持好心情。"
             return " ".join([part for part in [h, s, p, psp, c] if part])
 
         # --- 4. FRENCH (FRANÇAIS) ---
@@ -284,57 +469,53 @@ class ClinicalNLPEngine:
             c = "Poursuivez régulièrement vos traitements tels que prescrits et reposez-vous bien."
             return " ".join([part for part in [h, s, p, psp, c] if part])
 
-        # --- 5. ENGLISH (DEFAULT) ---
+        # --- 5. ENGLISH (DEFAULT - 10-YEAR-OLD READING LEVEL) ---
         else:
             sections = []
             if is_improving and is_psp:
                 sections.append(
-                    "Your latest MRI scan brings encouraging and comforting news. "
-                    "Overall, the findings show that your treatment is actively working to protect your brain."
+                    "Here is what your scan means in super simple words: Think of your brain like a wonderful control center. "
+                    "Your latest picture brings very happy news! The medicines you are taking are working like superhero guards protecting your brain."
                 )
             elif is_improving:
                 sections.append(
-                    "Your latest MRI scan shows encouraging stability. "
-                    "The tumor has not shown aggressive new activity."
+                    "Here is what your scan means in simple words: Think of your brain like a bustling control center. "
+                    "Your scan shows great, peaceful stability. Everything looks quiet, and the spot is behaving nicely."
                 )
             else:
                 sections.append(
-                    "Your care team has carefully reviewed your latest scan results. "
-                    "There are a few key details to keep an eye on, and your doctors are actively monitoring them."
+                    "Here is what your scan means in simple words: Your doctor team looked at your brain pictures very carefully. "
+                    "They see how the spot is doing, and they are keeping a close, loving watch over your brain's control center."
                 )
 
             if "reduction" in text.lower() or "decreased" in text.lower():
                 sections.append(
-                    f"In the {loc_desc}, the main active area of the tumor has visibly shrunk. "
-                    "The edges appear quieter and less active under the contrast dye."
+                    f"In the {loc_desc} area, the spot has visibly shrunk and gotten smaller! "
+                    "It looks much quieter and calmer than before."
                 )
             else:
                 sections.append(
-                    f"In the {loc_desc}, the treated area remains stable in size compared to your baseline scan."
+                    f"In the {loc_desc} area, the treated spot is staying peaceful and stable in size."
                 )
 
             if not has_pressure:
                 sections.append(
-                    "There is mild, normal fluid swelling (often called edema) around the treated area, "
-                    "which is expected after chemotherapy and radiation. Importantly, there is NO crowding "
-                    "or dangerous pressure on neighboring healthy brain areas, and both sides of your brain remain nicely balanced."
+                    "There is just a little bit of mild swelling around it, which is just like a small bruise healing after a scrape on your knee. "
+                    "The best part is that there is NO squeezing or dangerous pushing against any of the healthy, working parts of your brain!"
                 )
             else:
                 sections.append(
-                    f"There is some swelling and pressure noticeable ({entities['midline_shift']}). "
-                    "Your care team may adjust medications like Dexamethasone to quickly relieve this swelling."
+                    f"There is a little puffiness and pressure noticeable ({entities['midline_shift']}). "
+                    "Your doctors provide gentle medicine (like Dexamethasone) that works like an ice pack to help that swelling melt away."
                 )
 
             if is_psp:
                 sections.append(
-                    f"Special imaging measurements of blood flow (measuring {entities['rcbv']:.2f}) confirm that "
-                    "the tissue changes are largely due to 'treatment effect'—a natural healing response "
-                    "where your body clears treated cells. This is a very positive sign that your therapies are having their intended impact."
+                    "The blood flow check shows that this is just your body cleaning up old cells and healing up strong, which is a great sign that treatment is doing its job."
                 )
 
             sections.append(
-                "Remember, scan measurements are only one part of your story. Continue taking your medications as prescribed, "
-                "stay well-hydrated, and reach out to your oncology nurse if you feel any new headaches or symptoms."
+                "You are doing an awesome job! Keep taking your medicines on time, drink plenty of water, get good rest, and tell your nurse if you ever feel tired or dizzy."
             )
 
             return " ".join(sections)
