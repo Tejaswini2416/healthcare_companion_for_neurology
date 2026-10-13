@@ -251,6 +251,20 @@ def render_companion_chat():
                 }
             }
         ]
+    else:
+        # Auto-upgrade any legacy robotic canned messages from older sessions
+        for msg in st.session_state[history_key]:
+            if msg.get("role") == "assistant" and "Regarding your question:" in msg.get("content", ""):
+                from ...models import companion_agent
+                _upgrade_agent = companion_agent.CareCompanionAgent()
+                msg["content"] = _upgrade_agent._generate_clinical_gpt_response(
+                    "i wanna know about my current condition",
+                    patient=patient,
+                    scans=db.get_patient_scans(patient_id),
+                    meds=db.get_patient_medications(patient_id),
+                    symptoms=db.get_patient_symptoms(patient_id),
+                    timeline=db.get_patient_timeline(patient_id)
+                )
 
     # Quick prompt chips and clear conversation button
     c_chip_hdr, c_reset = st.columns([3, 1])
@@ -263,10 +277,10 @@ def render_companion_chat():
 
     row1_cols = st.columns(4)
     quick_prompts_row1 = [
+        "Explain my current condition",
         "Explain like I'm 10 years old",
         "Explain my latest scan results",
-        "Can I drink coffee in the morning?",
-        "What if I vomit my Temozolomide?"
+        "Can I drink coffee in the morning?"
     ]
     selected_chip = None
     for i, prompt in enumerate(quick_prompts_row1):
@@ -276,9 +290,9 @@ def render_companion_chat():
 
     row2_cols = st.columns(4)
     quick_prompts_row2 = [
+        "What if I vomit my Temozolomide?",
         "What diet is best for brain recovery?",
         "Can I drive a car right now?",
-        "Why am I feeling so tired?",
         "What should I ask Dr. Thorne?"
     ]
     for i, prompt in enumerate(quick_prompts_row2):

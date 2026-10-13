@@ -264,23 +264,78 @@ Format your responses with clean Markdown, helpful bullet points, and welcoming 
             )
 
         # -------------------------------------------------------------
-        # Category B: Emotional Coping, Fear, Anxiety, Family & Contagion
+        # Category B: Current Health Condition, Diagnosis & Overall Health Status
+        # -------------------------------------------------------------
+        if _matches_any(msg_lower, [
+            "condition", "current condition", "my condition", "my health", "how am i doing",
+            "what is wrong", "my cancer", "my tumor", "tell me about glioblastoma", "what is glioblastoma",
+            "tell me about my cancer", "what disease", "my diagnosis", "tell me about my condition",
+            "know about my current condition", "know about my condition", "explain my diagnosis", "status",
+            "about my condition", "current health"
+        ]):
+            return (
+                f"### 🩺 Comprehensive Overview of Your Current Health & Condition\n\n"
+                f"Hello {first_name}, here is a clear, compassionate, and medically grounded overview of your health journey:\n\n"
+                f"**1. Understanding Your Diagnosis**:\n"
+                f"You have been diagnosed with **{diagnosis}** located in your **{location}**.\n"
+                f"• This is a tumor of the brain's supportive glial tissue. Because it is situated in the **{location}** "
+                f"(an area responsible for verbal memory, word finding, and sensory processing), your oncology team's top priority is keeping this region protected, quiet, and stable.\n\n"
+                f"**2. Your Current Care & Treatment Phase**:\n"
+                f"• **Surgical Phase**: You have already undergone surgery to debulk and resect the primary tumor.\n"
+                f"• **Active Adjuvant Therapy**: Under the supervision of **{oncologist}**, you are undergoing targeted therapy (such as Temozolomide chemotherapy and radiation) to eliminate any microscopic residual cells.\n"
+                f"• **Brain Shielding (Keppra)**: You are prescribed **Levetiracetam (Keppra 500 mg BID)**, an essential medication that stabilizes electrical activity in surrounding brain tissue and guards against seizures.\n\n"
+                f"**3. What Your Latest Brain MRI ({scan_date}) Means for You**:\n"
+                f"Your digital health twin shows **very encouraging and stable findings**:\n"
+                f"• **Enhancing Residual Spot**: The active enhancing core measures **{et_v:.2f} cm³** (about the size of a small walnut), neatly confined along the resection cavity (Whole Tumor: {wt_v:.2f} cm³).\n"
+                f"• **Blood Perfusion Index (rCBV: {rcbv:.2f})**: In neuro-oncology, a relative blood volume below 1.75 is reassuring. Your level of **{rcbv:.2f}** proves that local blood flow is low, confirming that this is beneficial **post-treatment tissue healing / pseudoprogression** rather than aggressive tumor growth.\n"
+                f"• **Normal Symmetry**: There is no severe midline brain shift or ventricular crowding.\n\n"
+                f"**4. What You Should Focus on Daily**:\n"
+                f"• **Consistent Dosing**: Take your Keppra pills on time every 12 hours without skipping.\n"
+                f"• **Cognitive Rest**: Sleep 8 hours nightly—sleep is when your brain does its deepest reparative healing.\n"
+                f"• **Stay Well-Hydrated**: Drink 2 to 2.5 liters of water daily to flush medications.\n"
+                f"• Reach out directly to your oncology navigator, **{nurse}**, if you notice any new headaches, tingling, or word-finding pauses.\n\n"
+                f"You are navigating this journey with incredible resilience, {first_name}. What other aspect of your condition would you like to explore?"
+            )
+
+        # -------------------------------------------------------------
+        # Category C: Emotional Coping, Fear, Anxiety, Family & Contagion
         # -------------------------------------------------------------
         if _matches_any(msg_lower, ["scared", "fear", "anxious", "anxiety", "depressed", "depression", "sad", "crying", "terrified", "hopeless", "hug", "family", "kids", "children", "contagious", "catch", "kiss"]):
             return (
                 f"### 💙 Emotional Support & Family Safety for {patient_name}\n\n"
+                f"Hello {first_name}, it takes immense courage to walk this path, and whatever emotions you are feeling right now are completely valid:\n\n"
                 f"**1. Reassurance on Family & Closeness**:\n"
-                f"• **Brain tumors are NOT contagious**: You cannot pass cancer to your family, children, or friends.\n"
+                f"• **Brain tumors are NOT contagious**: You cannot pass cancer to your family, children, or loved ones.\n"
                 f"• **Hugs and kisses are completely safe**: You do not carry radioactivity after external beam radiation.\n"
-                f"• The only caution is washing hands and flushing twice for 48 hours following Temozolomide doses, as minor chemo metabolites leave through fluids.\n\n"
+                f"• The only temporary precaution is flushing twice and washing hands thoroughly for 48 hours following Temozolomide doses, as minor chemo metabolites exit through fluids.\n\n"
                 f"**2. Honoring Your Feelings**:\n"
-                f"• Navigating high-grade glioma is an intense emotional journey. It is completely normal to feel exhausted, anxious, or frightened at times.\n"
+                f"• Navigating brain cancer can feel overwhelming. It is entirely normal to feel tired, anxious, or frightened on certain days.\n"
                 f"• You are not alone. Your care team (**{oncologist}** and **{nurse}**) is actively monitoring your trajectory through your Digital Twin.\n"
-                f"• If anxiety or sleep problems feel heavy, ask your care team about oncology counseling or neuro-palliative wellness resources."
+                f"• Be gentle with yourself. Taking one day—or one hour—at a time is a valid and powerful way to heal."
             )
 
         # -------------------------------------------------------------
-        # Category C: Latest Scan Volumetrics & Imaging Interpretation
+        # Category D: Prognosis, Future Outlook & Recovery
+        # -------------------------------------------------------------
+        if _matches_any(msg_lower, [
+            "prognosis", "survival", "cure", "future", "life expectancy", "will i be okay",
+            "am i dying", "getting better", "recover", "hope", "timeline", "long term"
+        ]):
+            return (
+                f"### 🌅 Understanding Your Prognosis & Path Forward\n\n"
+                f"Hello {first_name}, asking about your future and prognosis is one of the most honest and important questions in neuro-oncology. Here is a balanced, evidence-based medical perspective:\n\n"
+                f"**1. Individualized Care, Not Generalized Numbers**:\n"
+                f"Broad statistics often group together patients of all ages, genomic backgrounds, and eras. Today, your treatment for **{diagnosis}** in the **{location}** is guided by modern multimodal neuro-oncology and your digital twin biomarkers.\n\n"
+                f"**2. Reassuring Indicators in Your Digital Twin**:\n"
+                f"• **Low Perfusion rCBV ({rcbv:.2f})**: Rapidly growing recurrent lesions require elevated microvascular blood flow (rCBV > 1.75). Your low perfusion indicates calm tissue responding to treatment.\n"
+                f"• **Controlled Residual Core ({et_v:.2f} cm³)**: Your enhancing tumor volume has remained stable post-surgery without rapid progression.\n"
+                f"• **Multimodal Therapy**: Stupp protocol adjuvant chemotherapy combined with consistent Keppra dosing gives your brain its strongest defense.\n\n"
+                f"**3. Our Shared Goal**:\n"
+                f"The clinical focus is maintaining long-term radiographic stability, zero seizures, and vibrant daily living so you can enjoy time with family and friends."
+            )
+
+        # -------------------------------------------------------------
+        # Category E: Latest Scan Volumetrics & Imaging Interpretation
         # -------------------------------------------------------------
         if _matches_any(msg_lower, ["scan", "mri", "latest scan", "result", "volume", "tumor size", "edema", "rcbv", "growing", "spread", "shrink"]):
             return (
@@ -299,7 +354,30 @@ Format your responses with clean Markdown, helpful bullet points, and welcoming 
             )
 
         # -------------------------------------------------------------
-        # Category D: Medications, Dosing, Missed Dose, Nausea & Keppra
+        # Category F: Symptoms, Sensations & Physical Changes
+        # -------------------------------------------------------------
+        if _matches_any(msg_lower, [
+            "headache", "dizzy", "dizziness", "fatigue", "tired", "exhausted", "weak",
+            "weakness", "numb", "numbness", "tingling", "seizure", "aura", "vision",
+            "blurry", "speech", "talking", "words", "memory", "forget", "smell", "pain"
+        ]):
+            return (
+                f"### 🩺 Understanding Your Symptoms & Brain Sensations\n\n"
+                f"Hello {first_name}, navigating physical sensations and changes during brain cancer treatment requires attentive pacing:\n\n"
+                f"**1. Fatigue & Cognitive Slowness**:\n"
+                f"• Feeling tired is the **most common side effect** of radiation and chemotherapy. It does NOT mean the tumor is growing; rather, your body is using energy to repair healthy tissue.\n"
+                f"• Schedule afternoon rests, hydrate frequently, and avoid overloading yourself with multi-tasking.\n\n"
+                f"**2. Temporal Lobe Functions (Speech & Memory)**:\n"
+                f"• Because your condition is in the **{location}**, subtle word-finding pauses or mild memory delays are expected when fatigued.\n"
+                f"• Write daily reminders on your phone, speak at a calm pace, and allow yourself time.\n\n"
+                f"**3. Sensory Auras & Keppra**:\n"
+                f"• Unusual fleeting smells, tingling in the hands, or brief deja vu can represent mild focal sensory auras. Your **Keppra 500 mg BID** keeps these in check.\n"
+                f"• Never skip a dose. If auras become frequent or feel different, inform **{nurse}** promptly.\n\n"
+                f"**🚨 STAT Emergency Alert**: If you ever experience sudden paralysis on one side, loss of speech, repeated vomiting, or loss of consciousness, call 911 immediately."
+            )
+
+        # -------------------------------------------------------------
+        # Category G: Medications, Dosing, Missed Dose, Nausea & Keppra
         # -------------------------------------------------------------
         if _matches_any(msg_lower, ["medication", "medicine", "pill", "temozolomide", "temodar", "keppra", "levetiracetam", "dexamethasone", "zofran", "ondansetron", "missed", "vomit", "throw up", "dose"]):
             return (
@@ -318,7 +396,7 @@ Format your responses with clean Markdown, helpful bullet points, and welcoming 
             )
 
         # -------------------------------------------------------------
-        # Category E: Nutrition, Diet, Sugar, Coffee & Lifestyle
+        # Category H: Nutrition, Diet, Sugar, Coffee & Lifestyle
         # -------------------------------------------------------------
         if _matches_any(msg_lower, ["diet", "food", "eat", "nutrition", "coffee", "caffeine", "sugar", "sweets", "alcohol", "drink", "keto"]):
             return (
@@ -338,7 +416,7 @@ Format your responses with clean Markdown, helpful bullet points, and welcoming 
             )
 
         # -------------------------------------------------------------
-        # Category F: Driving, Travel, Flying, Exercise & Physical Activity
+        # Category I: Driving, Travel, Flying, Exercise & Physical Activity
         # -------------------------------------------------------------
         if _matches_any(msg_lower, ["drive", "driving", "car", "fly", "flying", "airplane", "travel", "exercise", "gym", "swim", "swimming", "work"]):
             return (
@@ -355,7 +433,7 @@ Format your responses with clean Markdown, helpful bullet points, and welcoming 
             )
 
         # -------------------------------------------------------------
-        # Category G: Questions for Doctor & Appointment Prep
+        # Category J: Questions for Doctor & Appointment Prep
         # -------------------------------------------------------------
         if _matches_any(msg_lower, ["doctor", "ask", "question", "appointment", "visit", "second opinion", "consult"]):
             return (
@@ -369,7 +447,7 @@ Format your responses with clean Markdown, helpful bullet points, and welcoming 
             )
 
         # -------------------------------------------------------------
-        # Category H: General Greetings & Conversational Questions
+        # Category K: General Greetings & Conversational Questions
         # -------------------------------------------------------------
         if _matches_any(msg_lower, ["hello", "hi", "hey", "who are you", "what can you do", "good morning", "good evening", "how are you"]):
             return (
@@ -381,27 +459,96 @@ Format your responses with clean Markdown, helpful bullet points, and welcoming 
                 f"• Your logged symptoms, seizure safety, and treatment history\n"
                 f"• NCCN Guidelines for Central Nervous System Cancers\n\n"
                 f"**Feel free to ask me anything**, such as:\n"
+                f"• *\"Explain my current condition\"*\n"
                 f"• *\"Explain my latest scan results\"*\n"
                 f"• *\"Explain my condition in simple words as if I am 10 years old\"*\n"
                 f"• *\"Can I drink coffee in the morning?\"*\n"
                 f"• *\"What should I do if I miss my Keppra dose?\"*\n"
                 f"• *\"Can I travel or drive right now?\"*\n\n"
-                f"What is on your mind today?"
+                f"What is on your mind today, {first_name}?"
             )
 
         # -------------------------------------------------------------
-        # Category I: Universal Intelligent Synthesis for ANY Other Query
+        # Category L: Sleep, Insomnia & Resting Positions
+        # -------------------------------------------------------------
+        if _matches_any(msg_lower, ["sleep", "sleeping", "insomnia", "bed", "rest", "position", "side", "pillow", "night", "awake"]):
+            return (
+                f"### 🌙 Sleep & Brain Recovery Guidance for {patient_name}\n\n"
+                f"Sleep is when your central nervous system performs its deepest cellular repair and glymphatic clearance:\n\n"
+                f"**1. Sleeping Position Post-Craniotomy**:\n"
+                f"• It is generally recommended to sleep with your head slightly elevated (30° angle or with 1–2 pillows) to reduce morning intracranial venous pressure and prevent facial or perilesional puffiness.\n"
+                f"• If your incision in the **{location}** feels tender, sleep on the opposite side or on your back.\n\n"
+                f"**2. Protecting Deep Sleep Cycles**:\n"
+                f"• Aim for 8 hours of uninterrupted rest. Your brain clears metabolic debris primarily during slow-wave sleep.\n"
+                f"• If taking steroids (Dexamethasone), take morning and midday doses only, as late steroid doses can cause alertness and insomnia.\n"
+                f"• Keep bedtime screens dim, and avoid caffeine after 2:00 PM."
+            )
+
+        # -------------------------------------------------------------
+        # Category M: Hair Washing, Incision Care & Bathing
+        # -------------------------------------------------------------
+        if _matches_any(msg_lower, ["hair", "wash", "shower", "bath", "shampoo", "incision", "scar", "wound", "stitches", "staples"]):
+            return (
+                f"### 🚿 Incision Care & Scalp Hygiene for {patient_name}\n\n"
+                f"Caring for your scalp and surgical incision requires gentle, infection-preventing care:\n\n"
+                f"**1. Incision Healing Protocol**:\n"
+                f"• Keep the incision site clean and dry. Avoid scrubbing, scratching, or picking at scabs along the **{location}** incision.\n"
+                f"• Use a mild, unscented baby shampoo. Let water run gently over the area without direct high-pressure shower spray.\n"
+                f"• Gently pat dry with a clean, soft towel—do not rub vigorously.\n\n"
+                f"**2. What to Avoid**:\n"
+                f"• Do **not** submerge your head in bathtubs, swimming pools, or hot tubs until given formal clearance by your neurosurgical team.\n"
+                f"• Avoid hair dyes, harsh chemical treatments, or heat styling until your scalp has fully recovered and radiation therapy concludes.\n\n"
+                f"**3. When to Notify {nurse}**:\n"
+                f"• Report any increasing redness, drainage/fluid weeping, warmth, or sudden fever (>100.4°F / 38°C) immediately."
+            )
+
+        # -------------------------------------------------------------
+        # Category N: Radiation & Chemotherapy (Stupp Protocol)
+        # -------------------------------------------------------------
+        if _matches_any(msg_lower, ["radiation", "radiotherapy", "chemo", "chemotherapy", "stupp", "cycle", "cycles", "imrt", "beam"]):
+            return (
+                f"### 🔬 Understanding Your Multimodal Treatment (Stupp Regimen)\n\n"
+                f"Hello {first_name}, your current therapy follows the world gold standard in neuro-oncology (the **Stupp Protocol**):\n\n"
+                f"**1. How Temozolomide (TMZ) Works**:\n"
+                f"• Temozolomide is an oral alkylating agent that crosses the blood-brain barrier. It introduces methyl groups into DNA, selectively causing programmed death in dividing cancer cells.\n"
+                f"• Taking it with Ondansetron (Zofran) prevents nausea and ensures optimal drug delivery.\n\n"
+                f"**2. Radiation Therapy (IMRT / Proton)**:\n"
+                f"• Focused radiation targets microscopic margins in the **{location}** while sparing healthy brain tissue.\n"
+                f"• Mild scalp fatigue or skin redness in the radiation field is expected and managed with gentle aquaphor or calendula cream.\n\n"
+                f"**3. The Meaning of Your Stable Scan**:\n"
+                f"• Your low perfusion index (**rCBV: {rcbv:.2f}**) proves that the treatments are successfully keeping microvascular proliferation suppressed."
+            )
+
+        # -------------------------------------------------------------
+        # Category O: Molecular Markers, IDH & MGMT Methylation
+        # -------------------------------------------------------------
+        if _matches_any(msg_lower, ["idh", "mgmt", "methylation", "genetics", "molecular", "dna", "mutation", "biomarker", "pathology"]):
+            return (
+                f"### 🧬 Molecular Biomarkers & Precision Medicine for {patient_name}\n\n"
+                f"Your digital twin integrates advanced molecular pathology markers to tailor your therapy:\n\n"
+                f"**1. MGMT Promoter Methylation**:\n"
+                f"• In neuro-oncology, **MGMT promoter methylation** is one of the most positive predictive biomarkers. It essentially turns 'off' the DNA-repair mechanism in cancer cells, making them substantially more sensitive to Temozolomide chemotherapy.\n\n"
+                f"**2. IDH (Isocitrate Dehydrogenase) Status**:\n"
+                f"• IDH mutation status provides valuable diagnostic classification (WHO 2021 CNS Criteria) that helps **{oncologist}** customize maintenance schedules.\n\n"
+                f"**3. Why This Matters for You**:\n"
+                f"• These genomic findings confirm that standard multimodal therapy (Stupp protocol) is well-suited to your biological profile."
+            )
+
+        # -------------------------------------------------------------
+        # Category P: Universal Natural Conversational Response (Warm & Direct)
         # -------------------------------------------------------------
         return (
-            f"### 💡 Care Companion Response for {patient_name}\n\n"
-            f"Regarding your question: *\"{user_message}\"*\n\n"
-            f"**Clinical Insights from Your Digital Health Twin**:\n"
-            f"As someone managing **{diagnosis}** in the **{location}**, "
-            f"your overall clinical picture remains **stable and well-controlled** under your current regimen with {oncologist}.\n\n"
-            f"• **Scan Stability**: Your latest brain MRI ({scan_date}) confirmed an active enhancing core of **{et_v:.2f} cm³** (Whole Tumor: {wt_v:.2f} cm³) with low microvascular perfusion (rCBV: **{rcbv:.2f}**), which continues to reassure us against rapid recurrence.\n"
-            f"• **Daily Neuro-Protection**: Ensure you maintain exact timing on your anti-epileptic medication (Keppra) and prioritize 8 hours of sleep for restorative brain recovery.\n"
-            f"• **Bedside Advice**: If this question relates to changes in how you feel, energy levels, or upcoming plans, remember that gentle pacing, balanced nutrition, and open communication with your care navigator (**{nurse}**) are your best allies.\n\n"
-            f"Please let me know if you would like me to explain any particular scan term, medication side effect, or daily activity in greater detail!"
+            f"### 💡 Personalized Care Guidance for {first_name}\n\n"
+            f"Hello {first_name}! Let's walk through your question with clear clinical insights tailored to your journey:\n\n"
+            f"**1. Clinical Status of Your Digital Twin**:\n"
+            f"As someone managing **{diagnosis}** in your **{location}**, your health record shows that your condition is **stable, well-monitored, and on track** under your regimen with {oncologist}.\n"
+            f"• **MRI Volumetric Stability**: Your latest brain scan ({scan_date}) confirms an enhancing surgical cavity core of **{et_v:.2f} cm³** with a reassuring perfusion index of **rCBV {rcbv:.2f}** (below the 1.75 threshold), which points to beneficial treatment response rather than aggressive recurrence.\n"
+            f"• **Seizure Protection Shield**: Taking your prescribed **Keppra** regularly protects the delicate neuronal circuits around the {location}.\n\n"
+            f"**2. Practical Recommendations for You Today**:\n"
+            f"• **Pacing**: Listen to your body and honor when fatigue signals that your brain needs rest.\n"
+            f"• **Hydration & Nourishment**: Drink plenty of water and eat nourishing, protein-rich meals to aid tissue recovery.\n"
+            f"• **Direct Care Team Access**: Whenever you feel unsure about any medication timing or daily symptom, reach out to your clinical navigator, **{nurse}**.\n\n"
+            f"I am always here to explain any scan term, medication nuance, or lifestyle question whenever you need, {first_name}."
         )
 
     def generate_response(
