@@ -303,6 +303,7 @@ class DatabaseClient:
         p42_id = "e5b38d38-2c26-4d2b-91c6-2c1b97b00042"
         p43_id = "e5b38d38-2c26-4d2b-91c6-2c1b97b00043"
         p44_id = "e5b38d38-2c26-4d2b-91c6-2c1b97b00044"
+        p45_id = "e5b38d38-2c26-4d2b-91c6-2c1b97b00045"
 
         # 1. Patient Demographics
         self.storage["patients"] = [
@@ -353,6 +354,22 @@ class DatabaseClient:
                 "nurse_name": "Sarah Jensen, RN (Care Navigator)",
                 "share_research_consent": True,
                 "created_at": "2025-11-20T08:00:00Z"
+            },
+            {
+                "patient_id": p45_id,
+                "mrn": "0045",
+                "full_name": "Teju",
+                "age": 21,
+                "gender": "Female",
+                "diagnosis_type": "Glioblastoma (Astrocytoma, IDH-Mutant Grade 4)",
+                "diagnosis_location": "Left Temporal Lobe",
+                "diagnosis_date": "2026-06-10",
+                "treatment_stage": "Adjuvant Chemoradiation (Stupp Protocol Cycle 2)",
+                "baseline_kps": 90,
+                "oncologist_name": "Dr. Aris Thorne, MD (Neuro-Oncology)",
+                "nurse_name": "Sarah Jensen, RN (Care Navigator)",
+                "share_research_consent": True,
+                "created_at": "2026-06-10T08:00:00Z"
             }
         ]
 
@@ -381,6 +398,14 @@ class DatabaseClient:
                 "mgmt_methylated": True,
                 "codeletion_1p19q": True,
                 "assayed_at": "2025-12-01"
+            },
+            {
+                "profile_id": "f1b38d38-2c26-4d2b-91c6-2c1b97b00004",
+                "patient_id": p45_id,
+                "idh_status": "Mutant",
+                "mgmt_methylated": True,
+                "codeletion_1p19q": False,
+                "assayed_at": "2026-06-15"
             }
         ]
 
@@ -472,6 +497,31 @@ class DatabaseClient:
                 "dice_score": 0.9580,
                 "estimated_rcbv": 1.10,
                 "mask_storage_path": "scans/0044/20260825_seg.nii.gz"
+            },
+            # Patient 0045 (Teju)
+            {
+                "scan_id": "a8b38d38-2c26-4d2b-91c6-2c1b97b00018",
+                "patient_id": p45_id,
+                "scan_date": "2026-06-15",
+                "wt_vol_cm3": 15.20,
+                "tc_vol_cm3": 7.10,
+                "et_vol_cm3": 4.10,
+                "edema_vol_cm3": 6.80,
+                "dice_score": 0.9320,
+                "estimated_rcbv": 1.55,
+                "mask_storage_path": "scans/0045/20260615_seg.nii.gz"
+            },
+            {
+                "scan_id": "a9b38d38-2c26-4d2b-91c6-2c1b97b00019",
+                "patient_id": p45_id,
+                "scan_date": "2026-09-18",
+                "wt_vol_cm3": 12.80,
+                "tc_vol_cm3": 5.60,
+                "et_vol_cm3": 3.20,
+                "edema_vol_cm3": 5.40,
+                "dice_score": 0.9480,
+                "estimated_rcbv": 1.45,
+                "mask_storage_path": "scans/0045/20260918_seg.nii.gz"
             }
         ]
 
@@ -565,6 +615,36 @@ class DatabaseClient:
                 ),
                 "severity_tag": "Mild",
                 "created_at": "2026-08-26T09:15:00Z"
+            },
+            # Patient 0045 (Teju)
+            {
+                "report_id": "b4b38d38-2c26-4d2b-91c6-2c1b97b00024",
+                "patient_id": p45_id,
+                "scan_id": "a9b38d38-2c26-4d2b-91c6-2c1b97b00019",
+                "uploaded_by": "Clinician",
+                "report_date": "2026-09-18",
+                "raw_text": (
+                    "FINDINGS: 3T Brain MRI demonstrates stable post-surgical resection cavity in the left temporal lobe. "
+                    "Residual enhancing rim measures 3.2 cm3, completely unchanged from prior examination. Vasogenic edema remains stable at 5.4 cm3. "
+                    "Perfusion dynamic susceptibility contrast MRI demonstrates a normalized rCBV of 1.45, ruling out rapid tumor recurrence and "
+                    "confirming treatment-related pseudoprogression under adjuvant Temozolomide. IMPRESSION: Stable pseudoprogression; excellent response to Stupp Protocol."
+                ),
+                "parsed_entities": {
+                    "tumor_location": "Left temporal lobe",
+                    "enhancing_dimensions_cm": "Residual rim (3.20 cm3)",
+                    "edema_status": "Stable (5.40 cm3)",
+                    "mass_effect": False,
+                    "midline_shift_mm": 0.0,
+                    "rcbv": 1.45,
+                    "impression": "Treatment-related pseudoprogression (stable)"
+                },
+                "plain_language_summary": (
+                    "Great news! Your brain picture shows everything is calm and stable. "
+                    "The tiny spot in your left temporal lobe has calm blood flow and is sleeping quietly. "
+                    "Your medicines are doing a wonderful job protecting your brain."
+                ),
+                "severity_tag": "Mild",
+                "created_at": "2026-09-18T11:00:00Z"
             }
         ]
 
@@ -650,6 +730,46 @@ class DatabaseClient:
                 "adherence_notes": "Full adherence confirmed",
                 "last_updated_by": "Doctor",
                 "updated_at": "2026-09-25T08:00:00Z"
+            },
+            # Patient 0045 (Teju)
+            {
+                "med_id": "c7b38d38-2c26-4d2b-91c6-2c1b97b00037",
+                "patient_id": p45_id,
+                "med_name": "Levetiracetam (Keppra)",
+                "dosage": "500 mg Oral Tablet",
+                "frequency": "Twice Daily (Every 12 hours)",
+                "instructions": "Strict seizure prophylaxis; take at 08:00 and 20:00 with full glass of water.",
+                "prescribed_by": "Dr. Aris Thorne, MD",
+                "status": "Taken",
+                "adherence_notes": "Consistent 12-hour dosing logged",
+                "last_updated_by": "Patient",
+                "updated_at": "2026-09-24T20:00:00Z"
+            },
+            {
+                "med_id": "c8b38d38-2c26-4d2b-91c6-2c1b97b00038",
+                "patient_id": p45_id,
+                "med_name": "Temozolomide (Temodar)",
+                "dosage": "150 mg/m2 Oral Capsule",
+                "frequency": "Nightly at bedtime on empty stomach",
+                "instructions": "Take at bedtime with water 45 min after Ondansetron antiemetic.",
+                "prescribed_by": "Dr. Aris Thorne, MD",
+                "status": "Taken",
+                "adherence_notes": "Adjuvant cycle maintained without nausea",
+                "last_updated_by": "Doctor",
+                "updated_at": "2026-09-24T22:00:00Z"
+            },
+            {
+                "med_id": "c9b38d38-2c26-4d2b-91c6-2c1b97b00039",
+                "patient_id": p45_id,
+                "med_name": "Ondansetron (Zofran)",
+                "dosage": "8 mg Oral Tablet",
+                "frequency": "As needed (PRN) for nausea",
+                "instructions": "Take 30-45 minutes before Temozolomide.",
+                "prescribed_by": "Dr. Aris Thorne, MD",
+                "status": "Due",
+                "adherence_notes": "Available PRN",
+                "last_updated_by": "Patient",
+                "updated_at": "2026-09-24T21:15:00Z"
             }
         ]
 
@@ -711,6 +831,25 @@ class DatabaseClient:
                 "severity": "Mild",
                 "onset_time": "Evening",
                 "notes": "Usual fatigue after full workday; resolved with rest."
+            },
+            # Patient 0045 (Teju)
+            {
+                "log_id": "d7b38d38-2c26-4d2b-91c6-2c1b97b00047",
+                "patient_id": p45_id,
+                "logged_at": "2026-09-20T14:30:00Z",
+                "symptom_type": "Cognitive Fatigue",
+                "severity": "Mild",
+                "onset_time": "Afternoon 2:30 PM",
+                "notes": "Mild fatigue after radiation session; rested for 45 minutes and felt better."
+            },
+            {
+                "log_id": "d8b38d38-2c26-4d2b-91c6-2c1b97b00048",
+                "patient_id": p45_id,
+                "logged_at": "2026-09-22T09:15:00Z",
+                "symptom_type": "Sensory Aura",
+                "severity": "Mild",
+                "onset_time": "Morning 9:15 AM",
+                "notes": "Fleeting deja vu lasting ~10 seconds. No seizure activity; Keppra taken on time."
             }
         ]
 
@@ -760,6 +899,21 @@ class DatabaseClient:
                 "latent_twin_vector": [round(float(x), 4) for x in np.random.uniform(-0.15, 0.15, 64)],
                 "alert_banner_text": "Excellent Stability: Complete treatment response maintained with 100% medication adherence.",
                 "created_at": "2026-08-26T10:00:00Z"
+            },
+            # Patient 0045 (Teju)
+            {
+                "timeline_id": "e4b38d38-2c26-4d2b-91c6-2c1b97b00054",
+                "patient_id": p45_id,
+                "evaluation_date": "2026-09-18",
+                "progression_risk_score": 0.1820,
+                "triage_category": "Moderate",
+                "rano_category": "PsP (Pseudoprogression / Treatment Effect)",
+                "pseudoprogression_risk": 0.8250,
+                "is_pseudoprogression": True,
+                "adherence_rate_pct": 100.0,
+                "latent_twin_vector": [round(float(x), 4) for x in np.random.uniform(-0.15, 0.15, 64)],
+                "alert_banner_text": "Stable Pseudoprogression: Tumor margins demonstrate calm response to Temozolomide with low rCBV (1.45).",
+                "created_at": "2026-09-18T10:00:00Z"
             }
         ]
 

@@ -23,7 +23,7 @@ CLINICIAN_PROFILES: List[Dict[str, Any]] = [
         "hospital": "Comprehensive Brain Tumor Institute",
         "license_no": "NPI: 1849204821 • State Lic: NO-84920",
         "email": "dr.thorne@hospital.org",
-        "assigned_mrns": ["0042", "0044"],
+        "assigned_mrns": ["0042", "0044", "0045"],
         "avatar": "👨‍⚕️",
         "status": "Attending on Service"
     },

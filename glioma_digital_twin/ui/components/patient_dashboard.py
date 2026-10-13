@@ -149,7 +149,13 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
 
     st.divider()
 
-    # 5. Bottom Section: Demographics & Care Team
+    # 5. Live AI Cancer Care Companion & Digital Twin Chatbot
+    from .companion_chat import render_companion_chat
+    render_companion_chat(show_meds=False)
+
+    st.divider()
+
+    # 6. Bottom Section: Demographics & Care Team
     c_demo, c_care = st.columns([1.2, 1.0])
 
     with c_demo:

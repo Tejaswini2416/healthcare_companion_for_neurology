@@ -343,6 +343,13 @@ def main():
             else:
                 render_clinician_workstation()
 
+        # Active HealthMate AI Care Companion Dock on every patient sub-page
+        if pat_authenticated and st.session_state.current_view not in ["companion", "dashboard", "login"]:
+            st.write("")
+            st.divider()
+            with st.expander("💬 Ask HealthMate (AI Cancer Care Companion)", expanded=False):
+                render_companion_chat(show_meds=False)
+
 
 if __name__ == "__main__":
     main()
