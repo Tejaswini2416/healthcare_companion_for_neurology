@@ -9,8 +9,6 @@
 [![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o%20Integrated-412991.svg)](https://openai.com/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
----
-
 ## 🌟 Overview & Clinical Vision
 
 **Healthcare Companion** is an enterprise-grade, multimodal digital twin platform engineered to optimize care trajectories for patients confronting high-grade brain tumors (glioblastomas and high-grade astrocytomas). The platform bridges clinical engineering—featuring MONAI 3D SegResNet volumetric segmentation, Bio_ClinicalBERT diagnostic NLP, Fisher-Kolmogorov reaction-diffusion biophysical PDE simulation, cross-attention representation learning, interactive 3D anatomical brain modeling, and GPT-4o conversational care reasoning—with role-tailored workstations for oncologists and accessible portals for patients and caregivers.
