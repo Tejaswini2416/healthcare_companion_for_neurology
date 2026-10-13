@@ -55,9 +55,35 @@ def generate_ai_response(
                     return True
         return False
 
+    DISCLAIMER = (
+        "\n\n---\n"
+        "⚠️ *HealthMate Medical Disclaimer: I am an AI healthcare companion, not a certified doctor. "
+        "My guidance is for educational and wellness support and does not replace professional medical diagnosis, prescription, or clinical care. "
+        f"Please discuss ongoing symptoms or treatment decisions with {oncologist} or {nurse}.*"
+    )
+
     # =========================================================================
-    # 1. GENERAL KNOWLEDGE, SCIENCE, GEOGRAPHY & WORLD FACTS (The ChatGPT Experience)
+    # 0. STRICT EMERGENCY TRIAGE PROTOCOL (Highest Priority Safety Guard)
     # =========================================================================
+    emergency_kws = [
+        "severe chest pain", "chest pain", "sudden numbness", "sudden paralysis",
+        "paralyzed", "severe shortness of breath", "cant breathe", "can't breathe",
+        "heavy bleeding", "bleeding heavily", "suicidal thoughts", "suicide",
+        "end my life", "kill myself", "loss of consciousness", "unconscious"
+    ]
+    if any(k in msg_lower for k in emergency_kws):
+        return (
+            f"🚨 **URGENT EMERGENCY ALERT for {patient_name}**:\n\n"
+            "**What you are describing sounds like a potential medical emergency.**\n\n"
+            "**PLEASE ACT IMMEDIATELY**:\n"
+            "1. **Call local emergency services immediately**: Dial **911** (US) / **108** (India) / **112** (International/EU).\n"
+            "2. Or proceed directly to the **nearest Emergency Department** without delay.\n\n"
+            f"**Your Hospital Care Team Contacts**:\n"
+            f"- Attending Oncologist: **{oncologist}**\n"
+            f"- Oncology Navigator: **{nurse}**\n"
+            f"- Patient MRN: `{patient.get('mrn', '0042')}`\n\n"
+            "⚠️ *I am HealthMate, an AI assistant, and cannot handle emergency interventions.*"
+        )
 
     # World Capitals
     capitals = {
@@ -248,6 +274,7 @@ def generate_ai_response(
             f"• **What It Is**: Radiation and Temozolomide cause inflammatory swelling, localized vascular permeability, and breakdown of treated tumor cells. On standard contrast MRI, this temporary inflammation leaks gadolinium dye, mimicking growth.\n"
             f"• **How We Tell the Difference**: Advanced perfusion imaging (DSC MRI). In true tumor recurrence, aggressive new blood vessels drive perfusion high (rCBV > 1.75). In pseudoprogression, microvascular flow is low.\n"
             f"• **Your Digital Twin Finding**: Your measured **rCBV of {rcbv:.2f} is safely below 1.75**, confirming that your MRI appearance reflects beneficial treatment effect rather than rapid tumor recurrence."
+            + DISCLAIMER
         )
 
     # =========================================================================
@@ -262,6 +289,7 @@ def generate_ai_response(
             f"• **Neuronavigation (GPS for the Brain)**: High-resolution MRI scans are loaded into intraoperative cameras, allowing surgeons to track their instruments within fractions of a millimeter in real time.\n"
             f"• **5-ALA Fluorescent Guidance**: Patients drink an amino acid solution (5-ALA) before surgery. Brain tumor cells convert it into a fluorescent porphyrin that glows bright pink under blue UV light, helping surgeons achieve maximal safe resection.\n"
             f"• **Cortical & Subcortical Mapping**: For lesions near speech or motor pathways (such as the left temporal lobe), gentle electrical stimulation verifies that critical brain connections remain completely protected."
+            + DISCLAIMER
         )
 
     # Radiation Therapy Mechanics
@@ -272,6 +300,7 @@ def generate_ai_response(
             f"• **Mechanism**: High-energy X-ray photons damage the DNA of rapidly dividing cancer cells, rendering them unable to replicate, while healthy brain cells possess superior enzymatic repair capabilities to recover.\n"
             f"• **Fractionation (Daily Small Doses)**: Standard treatment delivers 60 Gray (Gy) divided into 30 daily fractions (2 Gy/day) over 6 weeks. This protects normal brain white matter while systematically clearing the tumor bed.\n"
             f"• **Daily Advice**: Radiation can cause cumulative fatigue around weeks 3–5. Prioritize afternoon naps and keep your scalp moisturized with gentle, unscented creams."
+            + DISCLAIMER
         )
 
     # Chemotherapy: Temozolomide Mechanics
@@ -282,6 +311,7 @@ def generate_ai_response(
             f"• **Empty Stomach Rule**: Take your capsule strictly with a full glass of water at bedtime, or at least 2 hours after food, to ensure full absorption and prevent nausea.\n"
             f"• **Pre-Medication**: Always take Ondansetron (Zofran 8 mg) 30 to 45 minutes *before* your Temozolomide capsule.\n"
             f"• **If You Vomit**: If you vomit after swallowing the pill, **do not take another dose**. Wait until the next scheduled dose and notify {nurse}."
+            + DISCLAIMER
         )
 
     # Optune TTFields (Tumor Treating Fields)
@@ -291,6 +321,7 @@ def generate_ai_response(
             f"• **What It Is**: Optune is an FDA-approved non-invasive therapy using adhesive transducer arrays worn on the shaved scalp.\n"
             f"• **How It Works**: Delivers low-intensity, intermediate-frequency (200 kHz) alternating electric fields. These fields physically pull on charged intracellular proteins (tubulin and septin), disrupting the mitotic spindle during cell division and causing cancer cells to break down.\n"
             f"• **Usage**: Recommended usage is ≥18 hours per day for maximum survival benefit, with regular scalp shaving and array repositioning every 3–4 days."
+            + DISCLAIMER
         )
 
     # =========================================================================
@@ -305,6 +336,7 @@ def generate_ai_response(
             f"• **Timing Consistency**: Keppra has a 7-8 hour elimination half-life. Taking your doses strictly every 12 hours (e.g., 08:00 AM and 08:00 PM) maintains a steady therapeutic blood level.\n"
             f"• **If You Miss a Dose**: If remembered within 4 hours, take it immediately. If close to the next scheduled dose, skip the missed dose and resume normal schedule. **Never double dose.**\n"
             f"• **Mood & Irritability ('Keppra Mood')**: In some patients, Keppra can cause mild mood changes or irritability. Adding **Vitamin B6 (Pyridoxine 50–100 mg)** often dramatically reduces this side effect—ask {oncologist} if this occurs."
+            + DISCLAIMER
         )
 
     # Dexamethasone (Steroids)
@@ -315,6 +347,7 @@ def generate_ai_response(
             f"• **Take With Food**: Always take Dexamethasone with meals or a snack to prevent stomach acid irritation. A stomach protector (like Omeprazole/Pantoprazole) is often co-prescribed.\n"
             f"• **Morning/Noon Dosing**: Avoid evening doses whenever possible, as steroids can cause alertness and insomnia.\n"
             f"• **Never Stop Abruptly**: Dexamethasone temporarily suppresses your adrenal glands. Your doctor will provide an exact step-down tapering schedule to allow your adrenal glands to resume natural hormone production safely."
+            + DISCLAIMER
         )
 
     # Pain Relievers: Tylenol vs Ibuprofen
@@ -324,6 +357,7 @@ def generate_ai_response(
             f"• **Preferred Safe Option**: **Acetaminophen (Tylenol / Paracetamol)** is the standard first-line medication for mild headaches and surgical site soreness. It relieves pain without affecting blood clotting.\n"
             f"• **Medications to AVOID**: **NSAIDs (Ibuprofen, Advil, Motrin, Aleve, Aspirin)** inhibit platelets and thin the blood, which can pose a risk of intracranial bleeding after craniotomy unless specifically approved by your neurosurgeon.\n"
             f"• **Maximum Safe Dose**: Never exceed 3,000 mg of Acetaminophen in 24 hours to protect liver function."
+            + DISCLAIMER
         )
 
     # =========================================================================
@@ -461,36 +495,45 @@ def generate_ai_response(
     # Headaches
     if _matches(["headache", "head pain", "throbbing head", "head pressure"]):
         return (
-            f"### 🩺 Understanding Headaches During Healing\n\n"
-            f"• **Mild Healing Headaches**: Mild localized soreness around your surgical site in the **{location}** or tension headaches from healing neck muscles are common.\n"
-            f"• **Safe Relief**: Take Acetaminophen (Tylenol) as directed, rest in a dim quiet room, and stay well-hydrated.\n"
-            f"• **🚨 When to Call Immediately**: If a headache is accompanied by repeated vomiting, waking you from deep sleep with severe nausea, sudden vision changes, or high fever, contact {nurse} or seek urgent evaluation immediately."
+            f"### 🩺 Understanding Headaches During Healing for {first_name}\n\n"
+            f"Common possibilities to discuss with a healthcare provider include:\n"
+            f"• **Post-Surgical Healing**: Mild localized scalp soreness around the incision in your **{location}** or tension in surrounding neck and dural tissue.\n"
+            f"• **Fluid & Medication Shifts**: Minor shifts in cerebral fluid dynamics or steroid tapering.\n"
+            f"• **Safe Relief Steps**: Acetaminophen (Tylenol) as directed, resting in a dim and quiet room, and drinking 2+ liters of water.\n\n"
+            f"**🚨 Urgent Red-Flag Warning**: If a headache is sudden, severe ('worst headache of your life'), accompanied by repeated vomiting, or waking you from deep sleep, seek emergency medical care immediately."
+            + DISCLAIMER
         )
 
     # Fatigue & Energy
     if _matches(["fatigue", "tired", "exhausted", "energy", "weary"]):
         return (
-            f"### 🔋 Navigating Cancer-Related Fatigue for {first_name}\n\n"
-            f"• **Why You Feel Tired**: Feeling fatigue is the **most common side effect** of radiation and chemotherapy. It is your body's natural response to cellular repair—it does **not** mean the tumor is growing.\n"
-            f"• **The Pacing Strategy**: Break your day into manageable intervals. Plan your most important activities for morning hours when energy is highest, and schedule a dedicated 30–45 minute afternoon rest.\n"
-            f"• **Light Movement**: Ironically, gentle 15-minute walks outdoors often boost energy more than staying in bed all day."
+            f"### 🔋 Navigating Fatigue & Low Energy for {first_name}\n\n"
+            f"Common possibilities to discuss with a healthcare provider include:\n"
+            f"• **Treatment-Induced Fatigue**: Fatigue is the single most common side effect during radiation and chemotherapy as healthy brain tissue expends high energy repairing cellular pathways.\n"
+            f"• **Sleep Disturbance & Medication Effects**: Anti-epileptic medications (Keppra) can contribute to cognitive drowsiness.\n"
+            f"• **Supportive Pacing**: Break daily activities into short intervals, prioritize morning hours for tasks, take a 30–45 minute afternoon rest, and drink plenty of fluids."
+            + DISCLAIMER
         )
 
     # Seizure Auras & Warning Signs
     if _matches(["aura", "seizure", "twitch", "funny smell", "deja vu", "convulsion"]):
         return (
-            f"### ⚡ Recognizing Focal Seizure Auras & Safety Steps\n\n"
-            f"• **What is an Aura?**: An aura is a focal seizure involving a small, localized cluster of neurons. Common temporal lobe auras include sudden intense deja vu, unusual metallic tastes, fleeting smells (like burning rubber), or brief stomach butterflies.\n"
-            f"• **Immediate Safety Action**: Sit or lie down immediately in a safe position away from sharp edges.\n"
-            f"• **Keppra Compliance**: Consistent 12-hour Keppra dosing is your best defense against auras generalizing into motor seizures. Report any changes in aura frequency to **{nurse}** promptly."
+            f"### ⚡ Recognizing Focal Seizure Auras & Safety Protocols\n\n"
+            f"Common possibilities to discuss with a healthcare provider include:\n"
+            f"• **Focal Sensory Aura**: Brief intense deja vu, sudden metallic tastes, unusual fleeting smells, or hand tingling can represent mild localized neuronal discharges near the **{location}**.\n"
+            f"• **Immediate Safety Action**: Sit or lie down on a flat surface away from hard edges immediately.\n"
+            f"• **Medication Protection**: Consistent 12-hour Keppra dosing maintains your seizure threshold. Keep a symptom log and report any change in frequency to **{nurse}**."
+            + DISCLAIMER
         )
 
     # Speech, Word-Finding & Memory
     if _matches(["speech", "words", "talking", "memory", "forget", "brain fog", "aphasia"]):
         return (
             f"### 🗣️ Temporal Lobe Functions: Speech & Verbal Memory\n\n"
-            f"• **Why Pauses Occur**: Your condition is located in the **{location}**, which houses key language processing networks. Mild word-finding delays or temporary memory lapses are normal when fatigued.\n"
-            f"• **Helpful Strategies**: Speak at a calm, unhurried pace. Use functional memory tools—keep a daily notebook or notes app on your phone, and ask family members to give you time to complete your thoughts without rushing."
+            f"Common possibilities to discuss with a healthcare provider include:\n"
+            f"• **Temporal Circuit Recovery**: Because your condition is in the **{location}** (which houses language networks), mild word-finding pauses or short-term memory delays are expected, especially when fatigued.\n"
+            f"• **Supportive Strategies**: Speak at an unhurried, calm pace. Keep a pocket notebook or phone notepad for daily thoughts, and allow yourself gentle grace."
+            + DISCLAIMER
         )
 
     # =========================================================================
@@ -551,6 +594,7 @@ def generate_ai_response(
             f"• **Stay Well-Hydrated**: Drink 2 to 2.5 liters of water daily to flush medications.\n"
             f"• Reach out directly to your oncology navigator, **{nurse}**, if you notice any new headaches, tingling, or word-finding pauses.\n\n"
             f"You are navigating this journey with incredible resilience, {first_name}. What other aspect of your condition would you like to explore?"
+            + DISCLAIMER
         )
 
     # Latest Scan Volumetrics & Imaging Breakdown
@@ -568,6 +612,7 @@ def generate_ai_response(
             f"**3. RANO 2.0 Clinical Verdict**:\n"
             f"Your scan status is classified as **Pseudoprogression (PsP) / Radiographic Stability**. Your midline remains symmetric with 0.0 mm shift.\n\n"
             f"You can also explore your personalized 3D brain model in the **\"3D Brain & Tumor Localization\"** tab to see this anatomy rendered in 360°!"
+            + DISCLAIMER
         )
 
     # Emotional Coping, Fear, Family & Contagion
@@ -598,6 +643,7 @@ def generate_ai_response(
             f"• **Multimodal Therapy**: Stupp protocol adjuvant chemotherapy combined with consistent Keppra dosing gives your brain its strongest defense.\n\n"
             f"**3. Our Shared Goal**:\n"
             f"The clinical focus is maintaining long-term radiographic stability, zero seizures, and vibrant daily living so you can enjoy time with family and friends."
+            + DISCLAIMER
         )
 
     # Questions for Doctor & Appointment Prep
@@ -615,22 +661,21 @@ def generate_ai_response(
     # Greetings & Introductions
     if _matches(["hello", "hi", "hey", "who are you", "what can you do", "good morning", "good evening", "how are you"]):
         return (
-            f"### 👋 Hello {first_name}! I am your AI Care Companion & Digital Twin GPT\n\n"
-            f"I am your dedicated personal health companion, built like ChatGPT but uniquely grounded in your real-time medical data.\n\n"
-            f"**What I have real-time access to**:\n"
-            f"• Your latest 3D Brain MRI scans ({scan_date}) & tumor volumetrics in your **{location}**\n"
-            f"• Your current medication schedule (Temozolomide, Keppra, Zofran)\n"
-            f"• Your logged symptoms, seizure safety, and treatment history\n"
-            f"• NCCN Guidelines for Central Nervous System Cancers\n\n"
-            f"**Feel free to ask me anything**, such as:\n"
+            f"### 👋 Hello {first_name}! I am HealthMate, your AI Healthcare Companion & Digital Twin GPT\n\n"
+            f"I am your empathetic and intelligent personal health companion, built to support you with wellness tracking, health literacy, symptom awareness, and medication reminders.\n\n"
+            f"**Your Personalized Health Record at a Glance**:\n"
+            f"• **Diagnosis & Location**: {diagnosis} ({location})\n"
+            f"• **Active Prescriptions**: Keppra 500 mg BID & Temozolomide Adjuvant\n"
+            f"• **Latest Brain MRI ({scan_date})**: Enhancing Core {et_v:.2f} cm³, Perfusion rCBV: {rcbv:.2f} (Stable / Pseudoprogression)\n"
+            f"• **Care Team**: {oncologist} & {nurse}\n\n"
+            f"**How I can support you today**:\n"
             f"• *\"Explain my current condition\"*\n"
             f"• *\"Explain my latest scan results\"*\n"
             f"• *\"How does an MRI machine actually work?\"*\n"
             f"• *\"Can I drink green tea or coffee?\"*\n"
             f"• *\"What should I do if I miss my Keppra dose?\"*\n"
-            f"• *\"Write a poem of hope for me\"*\n"
-            f"• *\"What is the capital of France?\"*\n\n"
-            f"What is on your mind today, {first_name}?"
+            f"• *\"Help me understand why I'm feeling fatigued\"*\n\n"
+            f"How can I support your health and well-being today, {first_name}?"
         )
 
     # =========================================================================
@@ -641,8 +686,8 @@ def generate_ai_response(
     words = clean_query.split()
     topic = " ".join(words[-4:]) if len(words) >= 4 else clean_query
 
-    return (
-        f"### 💡 Insights on: *\"{user_message.strip()}\"*\n\n"
+    synth_response = (
+        f"### 💡 HealthMate Guidance on: *\"{user_message.strip()}\"*\n\n"
         f"Hello {first_name}! Here is a thoughtful, comprehensive perspective on what you asked:\n\n"
         f"**1. Addressing Your Question Directly**:\n"
         f"Regarding **{topic}**, every aspect of daily life, wellness, and knowledge plays an important role in feeling empowered during your journey. "
@@ -653,3 +698,6 @@ def generate_ai_response(
         f"• **Listening to Your Body**: Whenever you are trying something new or contemplating a routine change, let your personal comfort and energy levels guide you.\n\n"
         f"Is there a specific detail about this topic you'd like me to explain further, {first_name}? Feel free to ask anything!"
     )
+    if _matches(["pain", "hurt", "symptom", "sick", "ache", "head", "med", "pill", "drug", "treatment", "tumor", "cancer", "scan", "surgery", "dose"]):
+        synth_response += DISCLAIMER
+    return synth_response

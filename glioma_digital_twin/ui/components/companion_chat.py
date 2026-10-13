@@ -123,12 +123,12 @@ def render_companion_chat():
     st.divider()
 
     # =========================================================================
-    # 2. CONVERSATIONAL CARE COMPANION (GPT-4o & CLINICAL BIO-LLM)
+    # 2. CONVERSATIONAL CARE COMPANION (HEALTHMATE AI)
     # =========================================================================
-    st.subheader("💬 AI Care Companion & Digital Twin GPT")
+    st.subheader("💬 HealthMate: AI Healthcare Companion")
     st.caption(
-        "Chat naturally with your personal health companion powered by GPT architecture. "
-        "Directly grounded in your 3D brain scans, medication history, and NCCN clinical oncology guidelines."
+        "Chat naturally with HealthMate, your personalized AI health companion. "
+        "Directly grounded in your 3D brain scans, medication history, and evidence-based clinical guidelines."
     )
 
     # Model Configuration & API Key Expander
@@ -145,7 +145,7 @@ def render_companion_chat():
             "OpenAI GPT-4o (State-of-the-Art)": "gpt-4o",
             "OpenAI GPT-4o Mini (Fast & Cost-Effective)": "gpt-4o-mini",
             "Groq LLaMA-3.3 70B (High-Speed Cloud LLM)": "llama-3.3-70b-versatile",
-            "Digital Twin Clinical GPT (Built-in Bio-LLM)": "clinical-gpt"
+            "HealthMate Clinical Bio-LLM (Built-in)": "clinical-gpt"
         }
         selected_display = st.selectbox(
             "🧠 Chatbot LLM Engine:",
@@ -232,12 +232,13 @@ def render_companion_chat():
             {
                 "role": "assistant",
                 "content": (
-                    f"Hello {patient['full_name']}, I am your personalized AI Care Companion (Digital Twin GPT). "
-                    "I am directly connected to your 3D brain scans, lab biomarkers, and medication schedule. "
-                    "Feel free to ask me anything about your diagnosis, MRI findings, symptoms, diet, or daily life. "
+                    f"Hello {patient['full_name']}! I am **HealthMate**, your empathetic and intelligent AI Healthcare Companion. "
+                    "I am here to support you with wellness tracking, health literacy, symptom awareness, and medication reminders, "
+                    "directly connected to your digital health twin record.\n\n"
+                    "Feel free to ask me anything about your care plan, symptoms, daily habits, or medications. "
                     "How are you feeling today?"
                 ),
-                "model_used": "Digital Twin GPT",
+                "model_used": "HealthMate Bio-LLM",
                 "graph_rag": {
                     "is_graph_verified": True,
                     "anti_hallucination_score": 0.98,
@@ -336,7 +337,7 @@ def render_companion_chat():
         agent = companion_agent.CareCompanionAgent()
 
         with st.chat_message("assistant", avatar="🩺"):
-            spinner_text = "Thinking with OpenAI GPT-4o..." if (current_key and "gpt" in selected_model_code) else "Thinking with Digital Twin Clinical GPT..."
+            spinner_text = "Thinking with HealthMate (OpenAI GPT-4o)..." if (current_key and "gpt" in selected_model_code) else "Thinking with HealthMate Clinical Bio-LLM..."
             with st.spinner(spinner_text):
                 try:
                     response_obj = agent.generate_response(
@@ -354,7 +355,7 @@ def render_companion_chat():
                         conversation_history=st.session_state[history_key]
                     )
                 bot_text = response_obj["response_text"]
-                model_tag = response_obj.get("model_used", "Digital Twin GPT")
+                model_tag = response_obj.get("model_used", "HealthMate Bio-LLM")
 
                 st.markdown(
                     f"<span style='font-size:0.75rem; background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:12px; font-weight:600; display:inline-block; margin-bottom:6px;'>🤖 {model_tag}</span>",
