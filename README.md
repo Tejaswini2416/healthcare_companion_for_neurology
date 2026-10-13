@@ -1,5 +1,5 @@
 # Healthcare Companion: AI-Powered Cancer Care
-### *Multimodal Deep Learning, Biophysical In-Silico Simulation, 3D Brain Modeling & Patient Health Twin for Brain Cancer*
+### *Multimodal Deep Learning, 3D Brain Modeling & Patient Health Twin for Brain Cancer*
 
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C.svg)](https://pytorch.org/)
