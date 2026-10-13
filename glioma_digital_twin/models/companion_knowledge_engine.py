@@ -687,15 +687,15 @@ def generate_ai_response(
     topic = " ".join(words[-4:]) if len(words) >= 4 else clean_query
 
     synth_response = (
-        f"### 💡 HealthMate Guidance on: *\"{user_message.strip()}\"*\n\n"
+        f"💡 Insights on: \"{user_message.strip()}\"\n\n"
         f"Hello {first_name}! Here is a thoughtful, comprehensive perspective on what you asked:\n\n"
-        f"**1. Addressing Your Question Directly**:\n"
-        f"Regarding **{topic}**, every aspect of daily life, wellness, and knowledge plays an important role in feeling empowered during your journey. "
-        f"Whether your question touches on everyday activities, science, general curiosity, or practical choices, taking an informed and balanced approach is always the best path forward.\n\n"
-        f"**2. Clinical & Practical Considerations**:\n"
-        f"• **Holistic Wellness**: As someone managing **{diagnosis}** with stable imaging in your **{location}**, remember that maintaining regular hydration, gentle physical pacing, and consistent sleep (8 hours nightly) protects your brain's natural healing reserves.\n"
-        f"• **Medication & Treatment Harmony**: Your current protective regimen (including **Keppra** and **Temozolomide**) provides a strong shield. Make sure any new activity, dietary change, or supplement is introduced gently and verified with **{nurse}** or **{oncologist}**.\n"
-        f"• **Listening to Your Body**: Whenever you are trying something new or contemplating a routine change, let your personal comfort and energy levels guide you.\n\n"
+        f"1. Addressing Your Question Directly:\n"
+        f"When thinking about this, keeping your routine balanced, calm, and supportive of your healing is key. "
+        f"Each aspect of your daily habits contributes directly to your cognitive stamina, energy, and overall peace of mind.\n\n"
+        f"2. Clinical & Practical Considerations:\n"
+        f"• Holistic Wellness: For someone healing with a **{diagnosis}** in the **{location}**, prioritizing cellular hydration, gentle physical pacing, and a solid 8 hours of sleep gives your brain the vital rest it needs to regenerate.\n"
+        f"• Medication & Treatment Harmony: Your daily shield—including **Keppra** and **Temozolomide**—keeps your neurological pathways steady. Always check any new habit, supplement, or over-the-counter remedy against your scheduled therapies.\n"
+        f"• Listening to Your Body & Care Team: Pay close attention to how your body responds each day. Always share any proposed lifestyle or dietary adjustments with **{nurse}** or **{oncologist}** before getting started.\n\n"
         f"Is there a specific detail about this topic you'd like me to explain further, {first_name}? Feel free to ask anything!"
     )
     if _matches(["pain", "hurt", "symptom", "sick", "ache", "head", "med", "pill", "drug", "treatment", "tumor", "cancer", "scan", "surgery", "dose"]):
