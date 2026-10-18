@@ -129,7 +129,7 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
     q1, q2, q3, q4, q5, q6 = st.columns(6)
 
     with q1:
-        if st.button("📋 Scans & Reports", use_container_width=True, help="Inspect MRI and 10-year-old kid translated reports"):
+        if st.button("📋 Scans & Reports", use_container_width=True, help="Inspect MRI and plain-language patient reports"):
             on_navigate("reports")
     with q2:
         if st.button("📝 Log Symptom", use_container_width=True, help="Record headaches, seizures, or fatigue"):
@@ -144,7 +144,7 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
         if st.button("📤 Upload MRI Scan", use_container_width=True, help="Upload and evaluate brain scan"):
             on_navigate("evaluator")
     with q6:
-        if st.button("📄 Upload & Verify Reports", use_container_width=True, help="Upload and verify clinical text reports"):
+        if st.button("📄 Upload Reports", use_container_width=True, help="Upload and analyze clinical text reports"):
             on_navigate("report_verify")
 
     st.divider()

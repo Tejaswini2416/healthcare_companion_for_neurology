@@ -469,53 +469,52 @@ class ClinicalNLPEngine:
             c = "Poursuivez régulièrement vos traitements tels que prescrits et reposez-vous bien."
             return " ".join([part for part in [h, s, p, psp, c] if part])
 
-        # --- 5. ENGLISH (DEFAULT - 10-YEAR-OLD READING LEVEL) ---
+        # --- 5. ENGLISH (DEFAULT - PLAIN-LANGUAGE PATIENT SUMMARY) ---
         else:
             sections = []
             if is_improving and is_psp:
                 sections.append(
-                    "Here is what your scan means in super simple words: Think of your brain like a wonderful control center. "
-                    "Your latest picture brings very happy news! The medicines you are taking are working like superhero guards protecting your brain."
+                    "Here is what your scan means in plain language: Your latest brain MRI brings very encouraging results. "
+                    "Your prescribed treatments are actively protecting your brain health and keeping your condition well-controlled."
                 )
             elif is_improving:
                 sections.append(
-                    "Here is what your scan means in simple words: Think of your brain like a bustling control center. "
-                    "Your scan shows great, peaceful stability. Everything looks quiet, and the spot is behaving nicely."
+                    "Here is what your scan means in plain language: Your scan shows positive, reassuring stability. "
+                    "The treated area is quiet, with no signs of aggressive tumor growth."
                 )
             else:
                 sections.append(
-                    "Here is what your scan means in simple words: Your doctor team looked at your brain pictures very carefully. "
-                    "They see how the spot is doing, and they are keeping a close, loving watch over your brain's control center."
+                    "Here is what your scan means in plain language: Your clinical team has carefully evaluated your latest scan. "
+                    "They are monitoring the treated area closely to ensure optimal management."
                 )
 
             if "reduction" in text.lower() or "decreased" in text.lower():
                 sections.append(
-                    f"In the {loc_desc} area, the spot has visibly shrunk and gotten smaller! "
-                    "It looks much quieter and calmer than before."
+                    f"In the {loc_desc} region, the treated lesion has visibly decreased in size, "
+                    "showing favorable response to therapy."
                 )
             else:
                 sections.append(
-                    f"In the {loc_desc} area, the treated spot is staying peaceful and stable in size."
+                    f"In the {loc_desc} region, the treated area remains stable and unchanged in dimensions."
                 )
 
             if not has_pressure:
                 sections.append(
-                    "There is just a little bit of mild swelling around it, which is just like a small bruise healing after a scrape on your knee. "
-                    "The best part is that there is NO squeezing or dangerous pushing against any of the healthy, working parts of your brain!"
+                    "Surrounding tissue shows mild, expected treatment-related swelling, with no dangerous pressure or shift on healthy brain structures."
                 )
             else:
                 sections.append(
-                    f"There is a little puffiness and pressure noticeable ({entities['midline_shift']}). "
-                    "Your doctors provide gentle medicine (like Dexamethasone) that works like an ice pack to help that swelling melt away."
+                    f"There is mild swelling and pressure noted ({entities['midline_shift']}). "
+                    "Your care team uses medications (such as Dexamethasone) to effectively manage and reduce this fluid."
                 )
 
             if is_psp:
                 sections.append(
-                    "The blood flow check shows that this is just your body cleaning up old cells and healing up strong, which is a great sign that treatment is doing its job."
+                    "Perfusion blood flow measurements confirm that the imaging findings reflect a positive healing response (pseudoprogression) rather than recurrent tumor."
                 )
 
             sections.append(
-                "You are doing an awesome job! Keep taking your medicines on time, drink plenty of water, get good rest, and tell your nurse if you ever feel tired or dizzy."
+                "Please continue taking your medications as scheduled, drink plenty of fluids, ensure adequate rest, and contact your care team if you experience any changes in your symptoms."
             )
 
             return " ".join(sections)

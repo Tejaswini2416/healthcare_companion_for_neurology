@@ -124,11 +124,11 @@ def render_companion_chat(show_meds: bool = True):
         st.divider()
 
     # =========================================================================
-    # 2. CONVERSATIONAL CARE COMPANION (HEALTHMATE AI)
+    # 2. CONVERSATIONAL CARE COMPANION (CHATGPT-STYLE AI CHATBOT)
     # =========================================================================
-    st.subheader("💬 HealthMate: AI Healthcare Companion")
+    st.subheader("💬 AI Care Companion")
     st.caption(
-        "Chat naturally with HealthMate, your personalized AI health companion. "
+        "Chat naturally with your AI health companion. "
         "Directly grounded in your 3D brain scans, medication history, and evidence-based clinical guidelines."
     )
 
@@ -146,7 +146,7 @@ def render_companion_chat(show_meds: bool = True):
             "OpenAI GPT-4o (State-of-the-Art)": "gpt-4o",
             "OpenAI GPT-4o Mini (Fast & Cost-Effective)": "gpt-4o-mini",
             "Groq LLaMA-3.3 70B (High-Speed Cloud LLM)": "llama-3.3-70b-versatile",
-            "HealthMate Clinical Bio-LLM (Built-in)": "clinical-gpt"
+            "Digital Twin Clinical GPT (Built-in)": "clinical-gpt"
         }
         selected_display = st.selectbox(
             "🧠 Chatbot LLM Engine:",
@@ -182,85 +182,36 @@ def render_companion_chat(show_meds: bool = True):
                 """
                 <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; margin-top: 18px;">
                     <span style="color: #0f172a; font-weight: 700; font-size: 0.85rem;">⚡ Built-in Clinical GPT Active</span><br>
-                    <span style="color: #64748b; font-size: 0.75rem;">OpenAI key optional (paste below for direct GPT-4o)</span>
+                    <span style="color: #64748b; font-size: 0.75rem;">Direct AI inference with Digital Twin grounding</span>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
-    # Expandable Settings to enter / paste OpenAI or Groq API Keys
-    with st.expander("⚙️ Connect Your OpenAI GPT-4o or Groq API Key (Optional)", expanded=False):
-        c_k1, c_k2 = st.columns(2)
-        with c_k1:
-            input_key = st.text_input(
-                "OpenAI API Key (sk-...):",
-                type="password",
-                value=current_key,
-                placeholder="sk-proj-...",
-                help="Your OpenAI API key is used strictly for generating conversational health companion responses.",
-                key="openai_key_input_box"
-            )
-            if input_key != current_key:
-                st.session_state["openai_api_key"] = input_key.strip()
-                os.environ["OPENAI_API_KEY"] = input_key.strip()
-                st.toast("OpenAI API Key updated!", icon="🔑")
-                st.rerun()
-
-        with c_k2:
-            input_groq = st.text_input(
-                "Groq API Key (gsk_...):",
-                type="password",
-                value=current_groq_key,
-                placeholder="gsk_...",
-                help="Optional: Free/Fast Groq cloud inference.",
-                key="groq_key_input_box"
-            )
-            if input_groq != current_groq_key:
-                st.session_state["groq_api_key"] = input_groq.strip()
-                os.environ["GROQ_API_KEY"] = input_groq.strip()
-                st.toast("Groq API Key updated!", icon="🔑")
-                st.rerun()
-
-        st.caption(
-            "💡 *Tip: If you do not have an API key, leave this blank! The Built-in Clinical GPT Engine "
-            "answers every question comprehensively using your individual Digital Twin facts.*"
-        )
-
     # Initialize chat history in session state per patient
     history_key = f"companion_history_{patient['mrn']}"
+    first_name = patient['full_name'].split()[0]
     if history_key not in st.session_state:
         st.session_state[history_key] = [
             {
                 "role": "assistant",
                 "content": (
-                    f"Hello {patient['full_name']}! I am **HealthMate**, your empathetic and intelligent AI Healthcare Companion. "
-                    "I am here to support you with wellness tracking, health literacy, symptom awareness, and medication reminders, "
-                    "directly connected to your digital health twin record.\n\n"
-                    "Feel free to ask me anything about your care plan, symptoms, daily habits, or medications. "
-                    "How are you feeling today?"
+                    f"Hello {first_name}! I am your AI Care Companion. "
+                    "I am directly connected to your digital health twin record to help you understand your scans, "
+                    "medications, symptoms, and daily wellness. How can I help you today?"
                 ),
-                "model_used": "HealthMate Bio-LLM",
-                "graph_rag": {
-                    "is_graph_verified": True,
-                    "anti_hallucination_score": 0.98,
-                    "citations": [
-                        "NCCN Guidelines for Central Nervous System Cancers (v2026.1).",
-                        "American Academy of Neurology (AAN) Practice Guidelines."
-                    ],
-                    "guidelines_applied": ["NCCN Category 1 Clinical Decision Support"],
-                    "clinical_alerts": [],
-                    "retrieved_nodes": ["protocol_stupp", "drug_temozolomide", "drug_levetiracetam"]
-                }
+                "model_used": "AI Health Companion"
             }
         ]
     else:
         # Auto-upgrade any legacy robotic canned messages from older sessions
         for msg in st.session_state[history_key]:
-            if msg.get("role") == "assistant" and "Regarding your question:" in msg.get("content", ""):
+            c = msg.get("content", "")
+            if msg.get("role") == "assistant" and any(k in c for k in ["Regarding your question:", "Care Companion Response for", "Clinical Insights from Your Digital Health Twin:", "### 🌟 Your Brain Story"]):
                 from ...models import companion_agent
                 _upgrade_agent = companion_agent.CareCompanionAgent()
                 msg["content"] = _upgrade_agent._generate_clinical_gpt_response(
-                    "i wanna know about my current condition",
+                    "Explain my diagnosis simply",
                     patient=patient,
                     scans=db.get_patient_scans(patient_id),
                     meds=db.get_patient_medications(patient_id),
@@ -280,7 +231,7 @@ def render_companion_chat(show_meds: bool = True):
     row1_cols = st.columns(4)
     quick_prompts_row1 = [
         "Explain my current condition",
-        "Explain like I'm 10 years old",
+        "Explain my diagnosis simply",
         "Explain my latest scan results",
         "Can I drink coffee in the morning?"
     ]
@@ -311,8 +262,6 @@ def render_companion_chat(show_meds: bool = True):
                     unsafe_allow_html=True
                 )
             st.markdown(msg["content"])
-            if msg.get("graph_rag"):
-                _render_graph_rag_badge(msg["graph_rag"])
 
     # Chat input
     user_input = st.chat_input("Ask anything about your diagnosis, scan results, medications, or daily life...")
@@ -338,7 +287,7 @@ def render_companion_chat(show_meds: bool = True):
         agent = companion_agent.CareCompanionAgent()
 
         with st.chat_message("assistant", avatar="🩺"):
-            spinner_text = "Thinking with HealthMate (OpenAI GPT-4o)..." if (current_key and "gpt" in selected_model_code) else "Thinking with HealthMate Clinical Bio-LLM..."
+            spinner_text = "Thinking (OpenAI GPT-4o)..." if (current_key and "gpt" in selected_model_code) else "Thinking..."
             with st.spinner(spinner_text):
                 try:
                     response_obj = agent.generate_response(
@@ -356,7 +305,7 @@ def render_companion_chat(show_meds: bool = True):
                         conversation_history=st.session_state[history_key]
                     )
                 bot_text = response_obj["response_text"]
-                model_tag = response_obj.get("model_used", "HealthMate Bio-LLM")
+                model_tag = response_obj.get("model_used", "AI Care Companion")
 
                 st.markdown(
                     f"<span style='font-size:0.75rem; background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:12px; font-weight:600; display:inline-block; margin-bottom:6px;'>🤖 {model_tag}</span>",
@@ -364,13 +313,9 @@ def render_companion_chat(show_meds: bool = True):
                 )
                 st.markdown(bot_text)
 
-                if response_obj.get("graph_rag"):
-                    _render_graph_rag_badge(response_obj["graph_rag"])
-
         st.session_state[history_key].append({
             "role": "assistant",
             "content": bot_text,
             "model_used": model_tag,
-            "cross_modal_insight": response_obj.get("cross_modal_insight"),
-            "graph_rag": response_obj.get("graph_rag")
+            "cross_modal_insight": response_obj.get("cross_modal_insight")
         })

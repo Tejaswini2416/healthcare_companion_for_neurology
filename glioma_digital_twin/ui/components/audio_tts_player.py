@@ -123,7 +123,7 @@ def render_audio_tts_player(
                 <span style="font-size: 22px;">🎧</span>
                 <div>
                     <div class="tts-title">{label}</div>
-                    <div class="tts-subtitle">Friendly voice over story for young patients (explained for a 10-year-old kid)</div>
+                    <div class="tts-subtitle">Spoken audio narration of clinical summary</div>
                 </div>
             </div>
 

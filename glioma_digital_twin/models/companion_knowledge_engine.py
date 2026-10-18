@@ -540,28 +540,16 @@ def generate_ai_response(
     # 8. CURRENT HEALTH CONDITION & 10-YEAR-OLD EXPLANATIONS
     # =========================================================================
 
-    # 10-Year-Old Explanation
-    if _matches(["10 year old", "10-year-old", "ten year old", "simple terms", "simple words", "eli5", "plain english", "explain simply", "like a child", "kid"]):
+    # Simple plain-language explanation
+    if _matches(["10 year old", "10-year-old", "ten year old", "simple terms", "simple words", "eli5", "plain english", "explain simply", "like a child", "kid", "simply"]):
         return (
-            f"### 🌟 Your Brain Story (Explained in Simple Words, Like for a 10-Year-Old)\n\n"
-            f"Hello {first_name}! Here is what is happening inside your head, explained just like an adventure story:\n\n"
-            f"**1. The Wonderful Control Center**:\n"
-            f"Think of your brain like the most amazing, magical control center in the world! It controls all your walking, laughing, storytelling, and dreams. "
-            f"In your **{location}** (which helps you remember fun adventures and words), a little cluster of cells decided to grow without following the rules—like unruly weeds in a beautiful garden.\n\n"
-            f"**2. The Brave Surgeons & Your Healing Journey**:\n"
-            f"Doctors went in and gently removed the big cluster of weeds during surgery! Right now, there is only a tiny spot left (measuring about {et_v:.1f} centimeters—about the size of a little blueberry).\n\n"
-            f"**3. The Superhero Defense Squad (Your Medicines)**:\n"
-            f"To make sure those weed cells don't come back, you have a superhero team working for you:\n"
-            f"• **Temozolomide (The Scout)**: This medicine sneaks in and stops the rogue cells from multiplying.\n"
-            f"• **Levetiracetam / Keppra (The Shield Guardian)**: It puts an invisible calm bubble around your brain wires so they don't get excited or cause twitches (seizures).\n\n"
-            f"**4. What Your Latest Brain Picture (MRI) Shows**:\n"
-            f"Your latest scan ({scan_date}) shows that everything is calm! The blood flow is nice and low (that means the cells are sleeping, not growing). "
-            f"The little yellow ring on your 3D picture is just mild swelling from healing, like when your knee puffs up after you scrape it on the playground.\n\n"
-            f"**5. How You Can Be a Champion Every Day**:\n"
-            f"• Drink plenty of cold water and fruit juice 💧\n"
-            f"• Take your Keppra pills on time every morning and night ⏰\n"
-            f"• Get big, restful sleeps so your brain can repair itself 🌙\n"
-            f"• Whenever you feel tired, take a rest—your body is doing superhero work inside!"
+            f"Hello {first_name}! In simple terms:\n\n"
+            f"Your latest scan and health records show very reassuring stability. "
+            f"The treated area in your **{location}** is quiet and well-controlled following surgery, with the residual spot measuring around {et_v:.1f} cm³.\n\n"
+            f"• **Healing Response**: The microvascular blood flow (rCBV of {rcbv:.2f}) is low, which shows that the area is responding to treatment with positive healing (pseudoprogression) rather than new tumor growth.\n"
+            f"• **Medications Working Together**: Your daily medications—**Temozolomide** and **Keppra**—continue to actively protect your brain tissue and prevent seizures.\n"
+            f"• **Daily Recovery**: To help your brain recover, prioritize 8 hours of sleep, drink plenty of water, take your medications on time, and take breaks whenever you feel tired.\n\n"
+            f"Let me know if there's any particular question or scan detail you'd like to talk about!"
         )
 
     # Current Health Condition & Overall Diagnosis Status
@@ -687,16 +675,12 @@ def generate_ai_response(
     topic = " ".join(words[-4:]) if len(words) >= 4 else clean_query
 
     synth_response = (
-        f"💡 Insights on: \"{user_message.strip()}\"\n\n"
-        f"Hello {first_name}! Here is a thoughtful, comprehensive perspective on what you asked:\n\n"
-        f"1. Addressing Your Question Directly:\n"
-        f"When thinking about this, keeping your routine balanced, calm, and supportive of your healing is key. "
-        f"Each aspect of your daily habits contributes directly to your cognitive stamina, energy, and overall peace of mind.\n\n"
-        f"2. Clinical & Practical Considerations:\n"
-        f"• Holistic Wellness: For someone healing with a **{diagnosis}** in the **{location}**, prioritizing cellular hydration, gentle physical pacing, and a solid 8 hours of sleep gives your brain the vital rest it needs to regenerate.\n"
-        f"• Medication & Treatment Harmony: Your daily shield—including **Keppra** and **Temozolomide**—keeps your neurological pathways steady. Always check any new habit, supplement, or over-the-counter remedy against your scheduled therapies.\n"
-        f"• Listening to Your Body & Care Team: Pay close attention to how your body responds each day. Always share any proposed lifestyle or dietary adjustments with **{nurse}** or **{oncologist}** before getting started.\n\n"
-        f"Is there a specific detail about this topic you'd like me to explain further, {first_name}? Feel free to ask anything!"
+        f"Hello {first_name}! Regarding your question about {topic}:\n\n"
+        f"When thinking about daily wellness and healing with {diagnosis}, maintaining a calm, balanced routine is key. "
+        f"Prioritizing gentle physical pacing, drinking plenty of water, and getting a consistent 8 hours of sleep helps support your cognitive energy and brain recovery.\n\n"
+        f"Your daily prescribed treatments (including **Keppra** and **Temozolomide**) are actively working to protect your brain tissue and keep everything stable. "
+        f"If this involves any new routine changes, activities, or over-the-counter supplements, it's always best to check in with **{nurse}** or **{oncologist}**.\n\n"
+        f"Is there anything specific you would like me to explain further or help you navigate?"
     )
     if _matches(["pain", "hurt", "symptom", "sick", "ache", "head", "med", "pill", "drug", "treatment", "tumor", "cancer", "scan", "surgery", "dose"]):
         synth_response += DISCLAIMER

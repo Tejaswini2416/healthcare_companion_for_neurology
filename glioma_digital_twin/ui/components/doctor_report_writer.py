@@ -255,12 +255,12 @@ def render_report_writing_page():
             placeholder="Document detailed parenchymal findings, margins, perfusion characteristics, and final diagnostic impression..."
         )
 
-        st.markdown("##### 💚 Patient-Friendly Empathetic Translation (10-Year-Old Reading Level):")
+        st.markdown("##### 💚 Patient-Friendly Empathetic Translation:")
         plain_custom = st.text_area(
             "Plain-Language Summary for Patient Portal (Leave blank to automatically synthesize via AI):",
             value="",
             height=90,
-            placeholder="Optional: Customize how this report will be explained to the patient in simple story terms..."
+            placeholder="Optional: Customize how this report will be explained to the patient in clear, supportive terms..."
         )
 
         submit_report = st.form_submit_button("📝 Electronically Sign & Log Report to Patient Record", type="primary", use_container_width=True)

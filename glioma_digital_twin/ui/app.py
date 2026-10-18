@@ -150,7 +150,7 @@ def main():
                 ("🧠 3D Brain & Tumor Localization", "mri_3d"),
                 ("📈 My Health Trends", "trends"),
                 ("📤 Upload & Scan MRI", "evaluator"),
-                ("📄 Upload & Verify Reports", "report_verify"),
+                ("📄 Upload Reports", "report_verify"),
                 ("👤 Portal & Profile", "login"),
             ]
             for label, view in patient_nav_items:

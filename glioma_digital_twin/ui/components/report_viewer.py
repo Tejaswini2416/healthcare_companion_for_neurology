@@ -233,6 +233,8 @@ def render_report_viewer():
                 report_translations = matching_report.get("translations", {})
                 if lang_code in report_translations:
                     active_summary = report_translations[lang_code]
+                elif lang_code == "en" and matching_report.get("plain_language_summary"):
+                    active_summary = matching_report["plain_language_summary"]
                 else:
                     nlp_engine = ClinicalNLPEngine(offline=True)
                     active_summary = nlp_engine.translate_to_plain_language(
@@ -247,14 +249,8 @@ def render_report_viewer():
                     st.markdown("###### 🔬 Technical Radiology Report Excerpt")
                     st.info(matching_report['raw_text'])
                 with col_plain:
-                    st.markdown(f"###### 💚 Empathetic Plain-Language Summary (Explained Simply, 10-Year-Old Reading Level)")
+                    st.markdown("###### 💚 Empathetic Plain-Language Summary")
                     st.success(active_summary)
-                    render_audio_tts_player(
-                        text_to_speak=active_summary,
-                        language_code=speech_locale,
-                        label="🔊 Listen to 10-Year-Old Story Voice Over",
-                        height=115
-                    )
 
                 st.markdown("###### 🔍 Extracted Clinical Entities")
                 parsed = matching_report.get('parsed_entities', {})
@@ -382,11 +378,5 @@ def render_report_viewer():
             with c_r4:
                 st.metric("Perfusion rCBV", f"{ent.get('rcbv', 1.50):.2f}")
 
-            st.markdown("###### 💚 Empathetic Plain-Language Summary (Explained Simply, 10-Year-Old Reading Level):")
+            st.markdown("###### 💚 Empathetic Plain-Language Summary:")
             st.info(last_analysis["plain_language_summary"])
-            render_audio_tts_player(
-                text_to_speak=last_analysis["plain_language_summary"],
-                language_code="en-US",
-                label="🔊 Listen to 10-Year-Old Story Voice Over",
-                height=115
-            )

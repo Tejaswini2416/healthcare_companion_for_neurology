@@ -189,71 +189,12 @@ def render_report_verification_hub(
     if molecular is None:
         molecular = db.get_patient_molecular(patient_id) or {}
 
-    st.subheader("📄 Upload & Verify Clinical Reports")
-    st.markdown(
-        "Upload clinical radiology reports (.txt, .md, .pdf) or select pre-configured clinical sample reports. "
-        "Run the **Bio_ClinicalBERT NLP Engine** and **RANO 2.0 Triage Classifier** to extract diagnostic entities, "
-        "inspect 10-year-old child story translations with audio voice over, and verify validated reports into your Digital Twin."
-    )
+    st.subheader("📄 Upload Reports")
 
     # =========================================================================
-    # STEP 1: SAMPLE REPORTS LIBRARY & DOWNLOAD/LOAD SHELF
+    # INGESTION AREA (UPLOAD FILE OR EDIT TEXT)
     # =========================================================================
-    with st.expander("📚 Clinical Sample Reports Library (Click to Inspect, Test & Download)", expanded=True):
-        st.markdown(
-            "Select any standard clinical scenario below to **stage the report** into the uploader, "
-            "or **download** the report text file to test drag-and-drop file ingestion."
-        )
-
-        cols = st.columns(4)
-        for i, s in enumerate(SAMPLE_REPORTS_LIBRARY):
-            with cols[i]:
-                st.markdown(
-                    f"""
-                    <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 12px; min-height: 240px; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div>
-                            <span style="background: {s['badge_color']}15; color: {s['badge_color']}; font-size: 0.72rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
-                                {s['scenario']}
-                            </span>
-                            <h5 style="margin: 6px 0 4px 0; font-size: 0.95rem; color: #0f172a;">{s['title']}</h5>
-                            <p style="margin: 0; font-size: 0.78rem; color: #64748b; line-height: 1.3;">
-                                <strong>Patient:</strong> {s['target_patient']}<br>
-                                <strong>Expected:</strong> {s['expected_severity']}
-                            </p>
-                            <p style="margin: 6px 0 0 0; font-size: 0.75rem; color: #334155; line-height: 1.25;">
-                                {s['summary']}
-                            </p>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-                st.write("")
-                col_btn_load, col_btn_dl = st.columns([1.2, 0.8])
-                with col_btn_load:
-                    if st.button("⚡ Stage Report", key=f"stage_btn_{s['id']}", use_container_width=True, type="primary"):
-                        st.session_state.staged_report_text = s["text"]
-                        st.session_state.staged_report_source = s["title"]
-                        st.session_state.staged_report_matched_mrn = s["mrn"]
-                        if s["mrn"] != st.session_state.get("active_patient_mrn"):
-                            st.session_state.active_patient_mrn = s["mrn"]
-                        st.success(f"Loaded: {s['title']}")
-                        st.rerun()
-
-                with col_btn_dl:
-                    st.download_button(
-                        label="⬇️ File",
-                        data=s["text"],
-                        file_name=s["file_name"],
-                        mime="text/plain",
-                        key=f"dl_btn_{s['id']}",
-                        use_container_width=True
-                    )
-
-    # =========================================================================
-    # STEP 2: INGESTION STAGING AREA (UPLOAD FILE OR EDIT TEXT)
-    # =========================================================================
-    st.markdown("##### 1. Stage Clinical Radiology Report for Active Patient")
+    st.markdown("##### 1. Select or Upload Clinical Report")
 
     # If no staged text exists yet, default to active patient default narrative
     if "staged_report_text" not in st.session_state or not st.session_state.staged_report_text:
@@ -497,7 +438,7 @@ def validate_radiology_or_pathology_report(text: str) -> tuple[bool, str]:
             st.dataframe(ent_rows, use_container_width=True)
 
         with col_plain:
-            st.markdown("###### 💚 Empathetic Plain-Language Translation (Explained Simply, 10-Year-Old Reading Level)")
+            st.markdown("###### 💚 Plain-Language Patient Summary")
             st.markdown(
                 f"""
                 <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 1rem; font-size: 0.95rem; line-height: 1.5; color: #0f172a;">
@@ -508,13 +449,6 @@ def validate_radiology_or_pathology_report(text: str) -> tuple[bool, str]:
                 """,
                 unsafe_allow_html=True
             )
-            render_audio_tts_player(
-                text_to_speak=nlp_data['plain_language_summary'],
-                language_code="en-US",
-                label="🔊 Listen to 10-Year-Old Story Voice Over",
-                height=115
-            )
-            st.caption("💡 Spoken aloud in super simple, comforting storytelling language designed for a 10-year-old child.")
 
         # Semantic Embedding Vector Representation
         with st.expander("🧬 View 11-Dimensional L2-Normalized Semantic Feature Vector", expanded=False):
@@ -543,7 +477,7 @@ def validate_radiology_or_pathology_report(text: str) -> tuple[bool, str]:
             )
 
             attest_box = st.checkbox(
-                "☑️ I confirm and verify that these diagnostic findings and 10-year-old story translation have been reviewed and should be synchronized with the Patient Digital Twin.",
+                "☑️ I confirm and verify that these diagnostic findings and report summary have been reviewed and should be synchronized with the Patient Digital Twin.",
                 value=True
             )
 
