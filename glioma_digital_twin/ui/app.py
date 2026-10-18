@@ -28,7 +28,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from glioma_digital_twin.ui.components.patient_dashboard import render_patient_dashboard
 from glioma_digital_twin.ui.components.symptom_logger import render_symptom_logger
 from glioma_digital_twin.ui.components.report_viewer import render_report_viewer
-from glioma_digital_twin.ui.components.companion_chat import render_companion_chat
 from glioma_digital_twin.ui.components.longitudinal_trends import render_longitudinal_trends
 from glioma_digital_twin.ui.components.clinician_upload import render_clinician_workstation
 from glioma_digital_twin.ui.components.mri_evaluator import render_mri_evaluator
