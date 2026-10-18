@@ -28,46 +28,59 @@
 
 ## 🏗️ System Architecture
 
-``` mermaid
+```mermaid
 graph TD
-    subgraph Multi-Source Ingestion & Verification
-        A[4-Channel 3D MRI: T1, T1ce, T2, FLAIR] --> B[MONAI SegResNet 3D]
-        C[2D MRI Slices / Uploads] --> D[Deep ResNet-18 Classifier]
-        E[Clinical Free Text / Reports] --> V_GATE[Strict Radiology/Pathology Gate]
-        V_GATE --> F[Bio_ClinicalBERT NLP Engine]
-        G[Structured EHR & Adherence] --> H[EHR Feature Vector]
+    subgraph S1 ["Multi-Source Ingestion & Verification"]
+        A["4-Channel 3D MRI: T1, T1ce, T2, FLAIR"] --> B["MONAI SegResNet 3D"]
+        C["2D MRI Slices / Uploads"] --> D["Deep ResNet-18 Classifier"]
+        E["Clinical Free Text / Reports"] --> V_GATE["Strict Radiology/Pathology Gate"]
+        V_GATE --> F["Bio_ClinicalBERT NLP Engine"]
+        G["Structured EHR & Adherence"] --> H["EHR Feature Vector"]
     end
 
-    subgraph Feature Representations & Volumetrics
-        B -->|Deep Bottleneck GAP| I[128D MRI Latent Vector]
-        B -->|Sub-Regions| J[NCR, ED, ET, WT, TC cm³]
-        D -->|Grad-CAM| K[Side-by-Side Saliency Map + Confidence]
-        F -->|L2 Normalized| L[11D Semantic Vector]
-        F -->|Patient Translation| M[6th-Grade Plain Language]
-        H --> N[8D Normalized EHR Vector]
+    subgraph S2 ["Feature Representations & Volumetrics"]
+        B -->|Deep Bottleneck GAP| I["128D MRI Latent Vector"]
+        B -->|Sub-Regions| J["NCR, ED, ET, WT, TC cm³"]
+        D -->|Grad-CAM| K["Side-by-Side Saliency Map + Confidence"]
+        F -->|L2 Normalized| L["11D Semantic Vector"]
+        F -->|Patient Translation| M["Plain-Language Summary"]
+        H --> N["8D Normalized EHR Vector"]
     end
 
-    subgraph Biophysical, Triage & 3D Reconstruction
-        J --> O[Fisher-Kolmogorov PDE Solver]
-        O -->|Counterfactuals| P[30-180d Vol & KPS Trajectories]
-        J & F & G --> Q[RANO 2.0 & PsP Triage Guard]
-        Q --> R[RANO Category & Triage Score]
-        J & E --> BRAIN_3D[3D Anatomical Brain & Tumor Localization Engine]
+    subgraph S3 ["Biophysical, Triage & 3D Reconstruction"]
+        J --> O["Fisher-Kolmogorov PDE Solver"]
+        O -->|Counterfactuals| P["30-180d Vol & KPS Trajectories"]
+        J --> Q["RANO 2.0 & PsP Triage Guard"]
+        F --> Q
+        G --> Q
+        Q --> R["RANO Category & Triage Score"]
+        J --> BRAIN_3D["3D Anatomical Brain & Tumor Localization Engine"]
+        E --> BRAIN_3D
     end
 
-    subgraph Intermediate Attention Fusion
-        I & L & N --> S[Cross-Attention PyTorch Module]
-        S --> T[64D Unified Patient Health Twin]
-        T --> U[Progression Risk & Modality Weights]
+    subgraph S4 ["Intermediate Attention Fusion"]
+        I --> S["Cross-Attention PyTorch Module"]
+        L --> S
+        N --> S
+        S --> T["64D Unified Patient Health Twin"]
+        T --> U["Progression Risk & Modality Weights"]
     end
 
-    subgraph Clinical & Conversational Interfaces
-        T & P & R & BRAIN_3D --> CLINICIAN[Doctor Workstation & Report Writer]
-        CLINICIAN --> PDF_GEN[Official Clinical PDF Generator]
-        T & M & K & BRAIN_3D --> PATIENT[Patient Portal & Scans Hub]
-        PATIENT --> GPT_AGENT[Care Companion GPT-4o / Clinical Bio-LLM]
+    subgraph S5 ["Clinical & Patient Workstations"]
+        T --> CLINICIAN["Doctor Workstation & Report Writer"]
+        P --> CLINICIAN
+        R --> CLINICIAN
+        BRAIN_3D --> CLINICIAN
+        CLINICIAN --> PDF_GEN["Official Clinical PDF Generator"]
+
+        T --> PATIENT["Patient Portal & Scans Hub"]
+        M --> PATIENT
+        K --> PATIENT
+        BRAIN_3D --> PATIENT
         PATIENT --> PDF_GEN
-        CLINICIAN & PATIENT <--> DB[(Supabase PostgreSQL / Local Resilient DB)]
+
+        CLINICIAN --- DB[("Supabase PostgreSQL / Local Resilient DB")]
+        PATIENT --- DB
     end
 ```
 
