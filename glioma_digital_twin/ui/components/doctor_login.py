@@ -179,14 +179,10 @@ def render_doctor_login(on_success: Optional[Callable[[], None]] = None):
             unsafe_allow_html=True
         )
 
-        col_p_nav1, col_p_nav2, col_p_logout = st.columns([1.5, 1.5, 1])
+        col_p_nav1, col_p_logout = st.columns([2, 1])
         with col_p_nav1:
             if st.button("🏠 Open My Health Dashboard", type="primary", use_container_width=True):
                 st.session_state.current_view = "dashboard"
-                st.rerun()
-        with col_p_nav2:
-            if st.button("💬 Chat with Care Companion", use_container_width=True):
-                st.session_state.current_view = "companion"
                 st.rerun()
         with col_p_logout:
             if st.button("🔒 Sign Out Patient", type="secondary", use_container_width=True):

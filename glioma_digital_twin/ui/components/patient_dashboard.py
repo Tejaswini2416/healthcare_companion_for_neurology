@@ -135,23 +135,17 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
         if st.button("📝 Log Symptom", use_container_width=True, help="Record headaches, seizures, or fatigue"):
             on_navigate("symptoms")
     with q3:
-        if st.button("💊 Medications", use_container_width=True, help="Track and verify medication adherence"):
-            on_navigate("companion")
+        if st.button("🧠 3D Brain View", use_container_width=True, help="Inspect 3D tumor reconstruction"):
+            on_navigate("mri_3d")
     with q4:
-        if st.button("💬 Care Companion", use_container_width=True, help="Chat with grounded conversational assistant"):
-            on_navigate("companion")
+        if st.button("📈 Health Trends", use_container_width=True, help="View longitudinal health trajectories"):
+            on_navigate("trends")
     with q5:
         if st.button("📤 Upload MRI Scan", use_container_width=True, help="Upload and evaluate brain scan"):
             on_navigate("evaluator")
     with q6:
         if st.button("📄 Upload Reports", use_container_width=True, help="Upload and analyze clinical text reports"):
             on_navigate("report_verify")
-
-    st.divider()
-
-    # 5. Live AI Cancer Care Companion & Digital Twin Chatbot
-    from .companion_chat import render_companion_chat
-    render_companion_chat(show_meds=False)
 
     st.divider()
 

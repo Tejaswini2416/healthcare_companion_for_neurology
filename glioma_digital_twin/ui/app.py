@@ -144,7 +144,6 @@ def main():
             st.markdown("##### 📍 Patient Navigation")
             patient_nav_items = [
                 ("🏠 My Health Dashboard", "dashboard"),
-                ("💬 Care Companion & Questions", "companion"),
                 ("📝 Log My Symptoms", "symptoms"),
                 ("📋 My Scans & Reports", "reports"),
                 ("🧠 3D Brain & Tumor Localization", "mri_3d"),
@@ -324,17 +323,11 @@ def main():
                 render_clinician_workstation()
             else:
                 render_symptom_logger()
-        elif st.session_state.current_view == "companion":
-            if doc_authenticated and not pat_authenticated:
-                # Companion chatbot removed from Doctor portal
-                render_report_writing_page()
+        elif st.session_state.current_view in ["companion", "medications"]:
+            if pat_authenticated:
+                render_patient_dashboard(on_navigate=navigate_to)
             else:
-                render_companion_chat()
-        elif st.session_state.current_view == "medications":
-            if doc_authenticated and not pat_authenticated:
                 render_clinician_workstation()
-            else:
-                render_companion_chat()
         elif st.session_state.current_view == "trends":
             render_longitudinal_trends()
         else:
@@ -342,13 +335,6 @@ def main():
                 render_patient_dashboard(on_navigate=navigate_to)
             else:
                 render_clinician_workstation()
-
-        # Active HealthMate AI Care Companion Dock on every patient sub-page
-        if pat_authenticated and st.session_state.current_view not in ["companion", "dashboard", "login"]:
-            st.write("")
-            st.divider()
-            with st.expander("💬 Ask HealthMate (AI Cancer Care Companion)", expanded=False):
-                render_companion_chat(show_meds=False)
 
 
 if __name__ == "__main__":
