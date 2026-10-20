@@ -282,3 +282,58 @@ INSERT INTO public.molecular_profiles (
     true,
     true
 ) ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- 9. TABLE: appointments
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.appointments (
+    appt_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID NOT NULL REFERENCES public.patients(patient_id) ON DELETE CASCADE,
+    doctor_name TEXT NOT NULL,
+    department TEXT NOT NULL,
+    appt_date DATE NOT NULL,
+    appt_time TEXT NOT NULL,
+    service_type TEXT NOT NULL,
+    location TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Confirmed',
+    preparation_notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_appointments_patient ON public.appointments(patient_id, appt_date);
+
+-- ============================================================================
+-- 10. TABLE: chat_conversations
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.chat_conversations (
+    message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID NOT NULL REFERENCES public.patients(patient_id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+    content TEXT NOT NULL,
+    model_used TEXT NOT NULL DEFAULT 'AI Health Companion',
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_patient ON public.chat_conversations(patient_id, created_at);
+
+ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chat_conversations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read access" ON public.appointments FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON public.appointments FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON public.appointments FOR UPDATE USING (true);
+
+CREATE POLICY "Allow public read access" ON public.chat_conversations FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON public.chat_conversations FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public delete access" ON public.chat_conversations FOR DELETE USING (true);
+
+-- Pre-seeded Appointments
+INSERT INTO public.appointments (
+    appt_id, patient_id, doctor_name, department, appt_date, appt_time, service_type, location, status, preparation_notes
+) VALUES
+('b1b38d38-2c26-4d2b-91c6-2c1b97b00071', 'e5b38d38-2c26-4d2b-91c6-2c1b97b00042', 'Dr. Aris Thorne, MD', 'Department of Neuro-Oncology', '2026-10-28', '10:30 AM', 'Neuro-Oncology Follow-up & 3D Volumetric Review', 'Brain Tumor Center, Suite 4B', 'Confirmed', 'Bring recent medication log and list of any aura/headache episodes. Continue Keppra as scheduled.'),
+('b2b38d38-2c26-4d2b-91c6-2c1b97b00072', 'e5b38d38-2c26-4d2b-91c6-2c1b97b00042', 'Dr. Marcus Vance, MD', 'Department of Neuroradiology', '2026-11-15', '02:00 PM', 'Surveillance 3T Brain MRI with Perfusion (rCBV)', 'Advanced Neuro-Imaging Pavilion, Bay 2', 'Scheduled', 'Fast 4 hours prior if IV gadolinium contrast is administered. Remove all metallic items.'),
+('b3b38d38-2c26-4d2b-91c6-2c1b97b00073', 'e5b38d38-2c26-4d2b-91c6-2c1b97b00042', 'Sarah Jensen, RN', 'Oncology Care Navigation', '2026-10-24', '11:00 AM', 'Adherence & Wellness Navigation Check-in', 'Telehealth Video Consultation', 'Confirmed', 'Log today''s symptoms in the app prior to the call.')
+ON CONFLICT (appt_id) DO NOTHING;
+

@@ -82,8 +82,30 @@ class MedicationUpdateRequest(BaseModel):
     new_status: str = Field(..., description="'Taken', 'Due', 'Missed'")
 
 class CompanionChatRequest(BaseModel):
-    user_message: str
-    patient_id: str = "e5b38d38-2c26-4d2b-91c6-2c1b97b00042"
+    user_message: Optional[str] = Field(None, description="User question or prompt in natural language")
+    message: Optional[str] = Field(None, description="Alternative key for user question")
+    patient_id: Optional[str] = "e5b38d38-2c26-4d2b-91c6-2c1b97b00042"
+    conversation_history: Optional[List[Dict[str, Any]]] = None
+    model_name: Optional[str] = "gpt-4o"
+    openai_api_key: Optional[str] = None
+    groq_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
+    save_history: Optional[bool] = True
+
+class AppointmentBookingRequest(BaseModel):
+    patient_id: Optional[str] = "e5b38d38-2c26-4d2b-91c6-2c1b97b00042"
+    doctor_name: Optional[str] = None
+    clinician: Optional[str] = None
+    department: Optional[str] = "Neuro-Oncology"
+    appt_date: Optional[str] = None
+    date: Optional[str] = None
+    appt_time: Optional[str] = None
+    time: Optional[str] = "10:00 AM"
+    service_type: Optional[str] = None
+    title: Optional[str] = None
+    location: Optional[str] = "Comprehensive Brain Tumor Center, Suite 4B"
+    preparation_notes: Optional[str] = "Standard clinic preparation."
+    status: Optional[str] = "Confirmed"
 
 class ConsentUpdateRequest(BaseModel):
     patient_id: str = "e5b38d38-2c26-4d2b-91c6-2c1b97b00042"
@@ -205,9 +227,75 @@ def update_medication_status(req: MedicationUpdateRequest):
 
 @app.post("/api/companion/chat")
 def companion_chat(req: CompanionChatRequest):
-    """Generates twin-grounded Care Companion response with safety guardrails."""
-    res = companion_agent.generate_response(req.user_message, patient_id=req.patient_id)
-    return res
+    """
+    Generates twin-grounded Care Companion response with clinical safety guardrails,
+    emergency escalation (112/108/911), medication safety checks, and medical FAQ.
+    """
+    raw_msg = (req.user_message or req.message or "").strip()
+    if not raw_msg:
+        raise HTTPException(status_code=422, detail="User message cannot be empty.")
+    if len(raw_msg) > 2000:
+        raise HTTPException(status_code=422, detail="User message exceeds maximum limit of 2000 characters.")
+
+    try:
+        res = companion_agent.generate_response(
+            raw_msg,
+            patient_id=req.patient_id or "e5b38d38-2c26-4d2b-91c6-2c1b97b00042",
+            conversation_history=req.conversation_history,
+            model_name=req.model_name or "gpt-4o",
+            openai_api_key=req.openai_api_key,
+            groq_api_key=req.groq_api_key,
+            gemini_api_key=req.gemini_api_key,
+            save_history=bool(req.save_history)
+        )
+        return {
+            "status": "success",
+            "patient_id": req.patient_id,
+            "response": res.get("response_text", ""),
+            "response_text": res.get("response_text", ""),
+            "model_used": res.get("model_used"),
+            "emergency_detected": res.get("emergency_detected", False),
+            "red_flag_detected": res.get("red_flag_detected", False),
+            "requires_escalation": res.get("requires_escalation", False),
+            "graph_rag": res.get("graph_rag"),
+            "data": res
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate companion response: {str(e)}")
+
+@app.get("/api/patient/{patient_id}/appointments")
+def get_patient_appointments(patient_id: str):
+    """Retrieves upcoming and scheduled clinic appointments for a patient."""
+    appts = db.get_patient_appointments(patient_id)
+    return {"status": "success", "patient_id": patient_id, "appointments": appts}
+
+@app.post("/api/patient/{patient_id}/appointments/book")
+def book_patient_appointment(patient_id: str, req: AppointmentBookingRequest):
+    """Books or requests an appointment for a patient."""
+    data = req.dict()
+    data["patient_id"] = patient_id
+    if not data.get("doctor_name") and data.get("clinician"):
+        data["doctor_name"] = data["clinician"]
+    if not data.get("appt_date") and data.get("date"):
+        data["appt_date"] = data["date"]
+    if not data.get("service_type") and data.get("title"):
+        data["service_type"] = data["title"]
+    if not data.get("appt_time") and data.get("time"):
+        data["appt_time"] = data["time"]
+    booked = db.book_appointment(data)
+    return {"status": "success", "patient_id": patient_id, "appointment": booked}
+
+@app.get("/api/patient/{patient_id}/chat/history")
+def get_chat_history(patient_id: str, limit: int = 50):
+    """Retrieves stored chat conversation history for a patient."""
+    history = db.get_chat_history(patient_id, limit=limit)
+    return {"status": "success", "patient_id": patient_id, "history": history}
+
+@app.delete("/api/patient/{patient_id}/chat/history")
+def clear_chat_history(patient_id: str):
+    """Clears stored chat conversation history for a patient."""
+    success = db.clear_chat_history(patient_id)
+    return {"status": "success", "patient_id": patient_id, "cleared": success}
 
 @app.post("/api/patient/{patient_id}/consent")
 def update_consent(patient_id: str, req: ConsentUpdateRequest):

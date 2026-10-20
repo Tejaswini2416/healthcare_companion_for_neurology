@@ -147,7 +147,9 @@ class DatabaseClient:
             "medications": [],
             "symptom_logs": [],
             "twin_timeline": [],
-            "counterfactual_simulations": []
+            "counterfactual_simulations": [],
+            "appointments": [],
+            "chat_conversations": []
         }
 
         # Seed full cohort of patient profiles for local resilient mode
@@ -963,6 +965,93 @@ class DatabaseClient:
             }
         ]
 
+        # 9. Pre-Seeded Appointments
+        self.storage["appointments"] = [
+            # Patient 0042 (V. Thanuja)
+            {
+                "appt_id": "apt-0042-01",
+                "patient_id": p42_id,
+                "doctor_name": "Dr. Aris Thorne, MD",
+                "department": "Department of Neuro-Oncology",
+                "appt_date": "2026-10-28",
+                "appt_time": "10:30 AM",
+                "service_type": "Neuro-Oncology Follow-up & 3D Volumetric Review",
+                "location": "Brain Tumor Center, Suite 4B",
+                "status": "Confirmed",
+                "preparation_notes": "Bring recent medication log and list of any aura/headache episodes. Continue Keppra as scheduled.",
+                "created_at": "2026-09-20T10:00:00Z"
+            },
+            {
+                "appt_id": "apt-0042-02",
+                "patient_id": p42_id,
+                "doctor_name": "Dr. Marcus Vance, MD",
+                "department": "Department of Neuroradiology",
+                "appt_date": "2026-11-15",
+                "appt_time": "02:00 PM",
+                "service_type": "Surveillance 3T Brain MRI with Perfusion (rCBV)",
+                "location": "Advanced Neuro-Imaging Pavilion, Bay 2",
+                "status": "Scheduled",
+                "preparation_notes": "Fast 4 hours prior if IV gadolinium contrast is administered. Remove all metallic items.",
+                "created_at": "2026-09-20T10:00:00Z"
+            },
+            {
+                "appt_id": "apt-0042-03",
+                "patient_id": p42_id,
+                "doctor_name": "Sarah Jensen, RN",
+                "department": "Oncology Care Navigation",
+                "appt_date": "2026-10-24",
+                "appt_time": "11:00 AM",
+                "service_type": "Adherence & Wellness Navigation Check-in",
+                "location": "Telehealth Video Consultation",
+                "status": "Confirmed",
+                "preparation_notes": "Log today's symptoms in the app prior to the call.",
+                "created_at": "2026-09-20T10:00:00Z"
+            },
+            # Patient 0043 (Marcus Chen)
+            {
+                "appt_id": "apt-0043-01",
+                "patient_id": p43_id,
+                "doctor_name": "Dr. Elena Rostova, MD",
+                "department": "Division of Surgical Neuro-Oncology",
+                "appt_date": "2026-11-04",
+                "appt_time": "09:00 AM",
+                "service_type": "Surgical Margin Review & Adjuvant Cycle Assessment",
+                "location": "Brain Tumor Center, Suite 2A",
+                "status": "Confirmed",
+                "preparation_notes": "Review CBC with differential lab results taken 48 hours prior.",
+                "created_at": "2026-09-20T10:00:00Z"
+            },
+            # Patient 0044 (Priya Sharma)
+            {
+                "appt_id": "apt-0044-01",
+                "patient_id": p44_id,
+                "doctor_name": "Dr. Aris Thorne, MD",
+                "department": "Department of Neuro-Oncology",
+                "appt_date": "2026-12-02",
+                "appt_time": "11:15 AM",
+                "service_type": "Long-Term Surveillance Consultation Post-PCV",
+                "location": "Brain Tumor Center, Suite 4B",
+                "status": "Scheduled",
+                "preparation_notes": "Review surveillance MRI scan with attending oncologist.",
+                "created_at": "2026-09-20T10:00:00Z"
+            },
+            # Patient 0045 (Teju)
+            {
+                "appt_id": "apt-0045-01",
+                "patient_id": p45_id,
+                "doctor_name": "Dr. Aris Thorne, MD",
+                "department": "Department of Neuro-Oncology",
+                "appt_date": "2026-10-30",
+                "appt_time": "10:00 AM",
+                "service_type": "Cycle 2 Evaluation & KPS Assessment",
+                "location": "Brain Tumor Center, Suite 4B",
+                "status": "Confirmed",
+                "preparation_notes": "Review symptom diary and blood counts.",
+                "created_at": "2026-09-20T10:00:00Z"
+            }
+        ]
+        self.storage["chat_conversations"] = []
+
     # --- Query & Retrieval APIs ---
 
     def _sanitize_patient_record(self, p: Dict[str, Any]) -> Dict[str, Any]:
@@ -1126,7 +1215,168 @@ class DatabaseClient:
                 pass
         return [sim for sim in self.storage["counterfactual_simulations"] if sim["patient_id"] == patient_id]
 
+    def _resolve_patient_id(self, patient_id_or_mrn: str) -> str:
+        """Resolves patient ID whether given as a UUID, pat_0042, or MRN 0042."""
+        if not patient_id_or_mrn:
+            return "e5b38d38-2c26-4d2b-91c6-2c1b97b00042"
+        # Direct match in patients table
+        p = self.get_patient_by_id(patient_id_or_mrn) or self.get_patient_by_mrn(patient_id_or_mrn)
+        if p:
+            return p["patient_id"]
+        # Check if contains mrn digits (e.g. pat_0042 -> 0042)
+        digits = "".join([c for c in patient_id_or_mrn if c.isdigit()])
+        if digits:
+            p = self.get_patient_by_mrn(digits)
+            if p:
+                return p["patient_id"]
+        return patient_id_or_mrn
+
+    def _normalize_appointment(self, appt: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensures appointment has standardized aliases: date/appt_date, clinician/doctor_name, title/service_type, appt_id/appointment_id."""
+        item = dict(appt)
+        if "appt_id" in item and "appointment_id" not in item:
+            item["appointment_id"] = item["appt_id"]
+        elif "appointment_id" in item and "appt_id" not in item:
+            item["appt_id"] = item["appointment_id"]
+
+        if "appt_date" in item and "date" not in item:
+            item["date"] = item["appt_date"]
+        elif "date" in item and "appt_date" not in item:
+            item["appt_date"] = item["date"]
+
+        if "doctor_name" in item and "clinician" not in item:
+            item["clinician"] = item["doctor_name"]
+        elif "clinician" in item and "doctor_name" not in item:
+            item["doctor_name"] = item["clinician"]
+
+        if "service_type" in item and "title" not in item:
+            item["title"] = item["service_type"]
+        elif "title" in item and "service_type" not in item:
+            item["service_type"] = item["title"]
+
+        if "appt_time" in item and "time" not in item:
+            item["time"] = item["appt_time"]
+        elif "time" in item and "appt_time" not in item:
+            item["appt_time"] = item["time"]
+        return item
+
+    def get_patient_appointments(self, patient_id: str) -> List[Dict[str, Any]]:
+        """Retrieves upcoming and scheduled appointments for a patient."""
+        target_pid = self._resolve_patient_id(patient_id)
+        raw_list = []
+        if self.is_connected_to_supabase and self.supabase_client:
+            try:
+                res = self.supabase_client.table("appointments").select("*").eq("patient_id", target_pid).order("appt_date").execute()
+                if res.data is not None and len(res.data) > 0:
+                    raw_list = res.data
+            except Exception:
+                pass
+        if not raw_list:
+            raw_list = [a for a in self.storage.get("appointments", []) if a.get("patient_id") in (target_pid, patient_id)]
+
+        normalized = [self._normalize_appointment(a) for a in raw_list]
+        return sorted(normalized, key=lambda x: (str(x.get("appt_date", "")), str(x.get("appt_time", ""))))
+
+    def get_chat_history(self, patient_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Retrieves stored conversation history for a patient."""
+        target_pid = self._resolve_patient_id(patient_id)
+        if self.is_connected_to_supabase and self.supabase_client:
+            try:
+                res = self.supabase_client.table("chat_conversations").select("*").eq("patient_id", target_pid).order("created_at").limit(limit).execute()
+                if res.data is not None and len(res.data) > 0:
+                    return res.data
+            except Exception:
+                pass
+        msgs = [m for m in self.storage.get("chat_conversations", []) if m.get("patient_id") in (target_pid, patient_id)]
+        return sorted(msgs, key=lambda x: str(x.get("created_at", "")))[-limit:]
+
     # --- Mutations & Insertions ---
+
+    def book_appointment(self, appt_data: Any, maybe_appt: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Books/requests a new clinical appointment. Resilient to book_appointment(dict) or book_appointment(patient_id, dict)."""
+        if maybe_appt is not None and isinstance(appt_data, str):
+            actual_data = dict(maybe_appt)
+            actual_data["patient_id"] = appt_data
+            appt_dict = actual_data
+        elif isinstance(appt_data, dict):
+            appt_dict = dict(appt_data)
+        else:
+            appt_dict = {}
+
+        target_pid = self._resolve_patient_id(appt_dict.get("patient_id", ""))
+        appt_dict["patient_id"] = target_pid
+
+        if "appt_id" not in appt_dict:
+            appt_dict["appt_id"] = str(uuid.uuid4())
+        if "created_at" not in appt_dict:
+            appt_dict["created_at"] = datetime.now(timezone.utc).isoformat()
+        if "status" not in appt_dict:
+            appt_dict["status"] = "Confirmed"
+
+        normalized = self._normalize_appointment(appt_dict)
+
+        if self.is_connected_to_supabase and self.supabase_client:
+            try:
+                # Keep DB column names compliant
+                db_record = {
+                    "appt_id": normalized.get("appt_id"),
+                    "patient_id": normalized.get("patient_id"),
+                    "doctor_name": normalized.get("doctor_name", normalized.get("clinician")),
+                    "department": normalized.get("department", "Neuro-Oncology"),
+                    "appt_date": normalized.get("appt_date", normalized.get("date")),
+                    "appt_time": normalized.get("appt_time", normalized.get("time", "10:00 AM")),
+                    "service_type": normalized.get("service_type", normalized.get("title", "Clinical Consultation")),
+                    "location": normalized.get("location", "Main Clinic"),
+                    "status": normalized.get("status", "Confirmed"),
+                    "preparation_notes": normalized.get("preparation_notes", ""),
+                    "created_at": normalized.get("created_at")
+                }
+                self.supabase_client.table("appointments").insert(db_record).execute()
+            except Exception as e:
+                print(f"[DatabaseClient] Supabase appointment insert error: {e}")
+
+        self.storage.setdefault("appointments", []).append(normalized)
+        return normalized
+
+    def save_chat_message(
+        self,
+        patient_id: str,
+        role: str,
+        content: str,
+        model_used: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Saves a message to patient chat conversation history."""
+        target_pid = self._resolve_patient_id(patient_id)
+        msg = {
+            "message_id": str(uuid.uuid4()),
+            "patient_id": target_pid,
+            "role": role,
+            "content": content,
+            "model_used": model_used or "AI Health Companion",
+            "metadata": metadata or {},
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        if self.is_connected_to_supabase and self.supabase_client:
+            try:
+                self.supabase_client.table("chat_conversations").insert(msg).execute()
+            except Exception:
+                pass
+        self.storage.setdefault("chat_conversations", []).append(msg)
+        return msg
+
+    def clear_chat_history(self, patient_id: str) -> bool:
+        """Clears conversation history for a patient."""
+        target_pid = self._resolve_patient_id(patient_id)
+        if self.is_connected_to_supabase and self.supabase_client:
+            try:
+                self.supabase_client.table("chat_conversations").delete().eq("patient_id", target_pid).execute()
+            except Exception:
+                pass
+        self.storage["chat_conversations"] = [
+            m for m in self.storage.get("chat_conversations", []) if m.get("patient_id") not in (target_pid, patient_id)
+        ]
+        return True
 
     def log_symptom(self, symptom_data: Dict[str, Any]) -> Dict[str, Any]:
         """

@@ -18,16 +18,24 @@ from typing import Dict, Any, List, Optional
 
 def generate_ai_response(
     user_message: str,
-    patient: Dict[str, Any],
-    scans: List[Dict[str, Any]],
-    meds: List[Dict[str, Any]],
-    symptoms: List[Dict[str, Any]],
-    timeline: List[Dict[str, Any]]
+    patient: Optional[Dict[str, Any]] = None,
+    scans: Optional[List[Dict[str, Any]]] = None,
+    meds: Optional[List[Dict[str, Any]]] = None,
+    symptoms: Optional[List[Dict[str, Any]]] = None,
+    timeline: Optional[List[Dict[str, Any]]] = None,
+    appointments: Optional[List[Dict[str, Any]]] = None
 ) -> str:
     """
     Synthesizes deep, intelligent, ChatGPT-quality responses tailored to the
     patient's individual condition and question.
     """
+    patient = patient or {}
+    scans = scans or []
+    meds = meds or []
+    symptoms = symptoms or []
+    timeline = timeline or []
+    appointments = appointments or []
+
     patient_name = patient.get("full_name", "Patient")
     first_name = patient_name.split()[0] if patient_name else "there"
     diagnosis = patient.get("diagnosis_type", "High-Grade Glioma")
@@ -55,34 +63,67 @@ def generate_ai_response(
                     return True
         return False
 
-    DISCLAIMER = (
-        "\n\n---\n"
-        "⚠️ *HealthMate Medical Disclaimer: I am an AI healthcare companion, not a certified doctor. "
-        "My guidance is for educational and wellness support and does not replace professional medical diagnosis, prescription, or clinical care. "
-        f"Please discuss ongoing symptoms or treatment decisions with {oncologist} or {nurse}.*"
-    )
+    DISCLAIMER = ""
 
     # =========================================================================
     # 0. STRICT EMERGENCY TRIAGE PROTOCOL (Highest Priority Safety Guard)
     # =========================================================================
     emergency_kws = [
         "severe chest pain", "chest pain", "sudden numbness", "sudden paralysis",
-        "paralyzed", "severe shortness of breath", "cant breathe", "can't breathe",
-        "heavy bleeding", "bleeding heavily", "suicidal thoughts", "suicide",
-        "end my life", "kill myself", "loss of consciousness", "unconscious"
+        "paralyzed", "paralysis", "severe shortness of breath", "cant breathe", "can't breathe",
+        "difficulty breathing", "heavy bleeding", "bleeding heavily", "suicidal thoughts", "suicide",
+        "end my life", "kill myself", "loss of consciousness", "unconscious", "passed out",
+        "unresponsive", "worst headache of my life", "thunderclap headache", "face drooping",
+        "facial droop", "slurred speech", "sudden weakness", "sudden blindness", "repeated seizures",
+        "uncontrolled seizure", "seizure now", "drank poison", "overdose", "stroke", "heart attack",
+        "vomiting blood"
     ]
     if any(k in msg_lower for k in emergency_kws):
         return (
             f"🚨 **URGENT EMERGENCY ALERT for {patient_name}**:\n\n"
             "**What you are describing sounds like a potential medical emergency.**\n\n"
-            "**PLEASE ACT IMMEDIATELY**:\n"
-            "1. **Call local emergency services immediately**: Dial **911** (US) / **108** (India) / **112** (International/EU).\n"
-            "2. Or proceed directly to the **nearest Emergency Department** without delay.\n\n"
-            f"**Your Hospital Care Team Contacts**:\n"
-            f"- Attending Oncologist: **{oncologist}**\n"
-            f"- Oncology Navigator: **{nurse}**\n"
-            f"- Patient MRN: `{patient.get('mrn', '0042')}`\n\n"
-            "⚠️ *I am HealthMate, an AI assistant, and cannot handle emergency interventions.*"
+            "**PLEASE ACT IMMEDIATELY — DO NOT DELAY OR WAIT FOR FURTHER CHAT RESPONSES**:\n\n"
+            "• 🇮🇳 **India National Emergency Number**: Dial **112** (All-in-One Emergency Helpline: Medical, Fire, Police) or **108** (Emergency Ambulance Service).\n"
+            "• 🇺🇸 **United States & North America**: Dial **911**\n"
+            "• 🇬🇧 **United Kingdom**: Dial **999**\n"
+            "• 🇪🇺 **Europe & International**: Dial **112**\n"
+            "• 🏥 **Or proceed directly to the nearest Hospital Emergency Department without delay.**\n\n"
+            f"**Your Hospital Care Team Emergency Contacts**:\n"
+            f"- **Attending Neuro-Oncologist**: {oncologist}\n"
+            f"- **Oncology Care Navigator**: {nurse} (Urgent Helpline)\n"
+            f"- **Neuro-Oncology Triage Hotline**: `+91 (080) 4123-8900`\n"
+            f"- **Patient MRN**: `{patient.get('mrn', '0042')}`\n\n"
+            "⚠️ *HealthMate Clinical Safety Notice: I am an AI healthcare companion, not a qualified medical professional or real-time emergency responder.*"
+        )
+
+    # =========================================================================
+    # 0.5. MEDICATION SAFETY & PRESCRIPTION REFUSAL SAFEGUARD (Clinical Guard)
+    # =========================================================================
+    rx_safety_kws = [
+        "prescribe", "write a prescription", "give me a prescription", "recommend dosage",
+        "change my dose", "change medication", "increase my dose", "decrease my dose",
+        "double my", "double the dose", "take extra", "stop taking my medicine",
+        "stop my keppra", "stop my chemo", "should i stop taking", "prescribe medicine",
+        "prescribe pills", "can you prescribe", "adjust my dose", "alter my dose",
+        "increase dose", "decrease dose", "change dose", "adjust dose", "give me tramadol",
+        "write me a script"
+    ]
+    if any(k in msg_lower for k in rx_safety_kws):
+        return (
+            f"### 🛡️ Medication Safety Notice: Prescription & Dosage Safeguards\n\n"
+            f"Hello {first_name}, I want to clarify an essential medical and clinical safety boundary:\n\n"
+            f"⚠️ **I am HealthMate, an AI healthcare companion. I CANNOT prescribe medications, recommend specific drug dosages, or advise you to change or adjust prescribed treatments.**\n\n"
+            f"**Why This Strict Policy Exists to Protect Your Health**:\n"
+            f"• **Never adjust doses independently**: Prescribing medicines or altering chemotherapy/anticonvulsant doses requires an authorized physician or prescribing physician who evaluates real-time lab panels (CBC, liver/kidney function) and drug interactions.\n"
+            f"• **Seizure Risk**: Abruptly reducing or changing **Levetiracetam (Keppra)** can trigger breakthrough seizures or status epilepticus.\n"
+            f"• **Chemotherapy Precautions**: Altering doses of **Temozolomide** without clinical supervision can lead to severe bone marrow suppression or loss of tumor control.\n\n"
+            f"**Recommended Clinical Steps**:\n"
+            f"• If you have questions about adjusting your medications or experiencing side effects, contact your prescribing physician or care team directly:\n"
+            f"  - **Attending Neuro-Oncologist**: {oncologist}\n"
+            f"  - **Oncology Navigator**: {nurse}\n"
+            f"  - **Hospital Triage Line**: `+91 (080) 4123-8900`\n\n"
+            f"I can gladly explain how your current medications work, remind you of your schedule, or help formulate questions for your doctor!"
+            + DISCLAIMER
         )
 
     # World Capitals
@@ -328,6 +369,30 @@ def generate_ai_response(
     # 4. MEDICATIONS & PHARMACOLOGY
     # =========================================================================
 
+    # Medication Safety & Prescription Refusal Safeguard
+    if _matches([
+        "prescribe", "write a prescription", "give me a prescription", "recommend dosage",
+        "change my dose", "change medication", "increase my dose", "decrease my dose",
+        "stop taking my medicine", "stop my keppra", "stop my chemo", "should i stop taking",
+        "prescribe medicine", "prescribe pills", "can you prescribe"
+    ]):
+        return (
+            f"### 🛡️ Medication Safety Notice: Prescription & Dosage Safeguards\n\n"
+            f"Hello {first_name}, I want to clarify an essential medical and safety boundary:\n\n"
+            f"⚠️ **I am HealthMate, an AI healthcare companion. I CANNOT prescribe medications, recommend specific drug dosages, or advise you to change or stop prescribed treatments.**\n\n"
+            f"**Why This Strict Policy Exists to Protect Your Health**:\n"
+            f"• Prescribing medicines or altering doses requires a certified physician who has examined your real-time organ lab panels (CBC, kidney and liver enzymes), molecular biomarkers, and drug-drug interactions.\n"
+            f"• **Seizure Risk**: Abruptly reducing or stopping **Levetiracetam (Keppra)** can trigger dangerous breakthrough seizures or status epilepticus.\n"
+            f"• **Chemotherapy & Steroid Precautions**: Modifying doses of **Temozolomide** or **Dexamethasone** without doctor supervision can cause adrenal crisis or compromise tumor control.\n\n"
+            f"**Recommended Steps**:\n"
+            f"• If you are experiencing side effects, difficulty taking pills, or considering any regimen adjustments, contact your care team directly:\n"
+            f"  - **Attending Neuro-Oncologist**: {oncologist}\n"
+            f"  - **Oncology Navigator**: {nurse}\n"
+            f"  - **Hospital Triage Helpline**: `+91 (080) 4123-8900`\n\n"
+            f"I can gladly explain how your current medications work, remind you of your schedule, or help you formulate questions for your doctor!"
+            + DISCLAIMER
+        )
+
     # Keppra (Levetiracetam)
     if _matches(["keppra", "levetiracetam", "seizure pill", "anti-seizure", "anticonvulsant"]):
         return (
@@ -363,6 +428,35 @@ def generate_ai_response(
     # =========================================================================
     # 5. NUTRITION, DIET, FOODS & BEVERAGES
     # =========================================================================
+
+    # Healthy Diet & Nutrition FAQ (WHO / NHS Guidelines)
+    if _matches([
+        "healthy diet", "maintain a healthy diet", "maintain healthy diet", "good diet",
+        "what diet", "what should i eat", "nutrition guidelines", "nutrition advice",
+        "best foods", "healthy eating", "mediterranean diet", "eating healthy",
+        "how to eat", "diet plan", "diet for brain", "dietary advice"
+    ]):
+        return (
+            f"### 🥗 Maintaining a Healthy Diet & Optimal Nutrition (WHO & NHS Guidelines)\n\n"
+            f"Hello {first_name}! Nutrition plays a vital supportive role in cognitive recovery, tissue repair, and immune resilience during care for **{diagnosis}**.\n\n"
+            f"Here are evidence-grounded dietary principles backed by the **World Health Organization (WHO)** and **NHS Oncology Nutrition Services**:\n\n"
+            f"**1. Emphasize Anti-Inflammatory Whole Foods**:\n"
+            f"• **Colorful Vegetables & Fruits**: Eat a rainbow of produce (spinach, kale, carrots, bell peppers, blueberries, avocados). These are rich in polyphenols and antioxidants that protect healthy brain cells from oxidative stress.\n"
+            f"• **Healthy Omega-3 Fatty Acids**: Extra virgin olive oil, walnuts, chia seeds, and fatty fish (salmon, sardines) support brain cellular membrane integrity and calm systemic inflammation.\n\n"
+            f"**2. Adequate Lean Protein for Tissue Recovery**:\n"
+            f"• Protein is the building block for tissue recovery following neurosurgery and radiation therapy.\n"
+            f"• Recommended sources: Eggs, poultry, fish, tofu, Greek yogurt, lentils, and beans (aim for 1.0–1.2 grams of protein per kilogram of body weight daily).\n\n"
+            f"**3. Consistent Hydration (Vital for Treatment Clearance)**:\n"
+            f"• Drink **2 to 2.5 liters of clean water** throughout the day. Ample hydration helps your kidneys flush medication metabolites (including Temozolomide) and significantly reduces treatment-related headaches and fatigue.\n\n"
+            f"**4. Blood Sugar Balance & Carbohydrates**:\n"
+            f"• Prioritize complex, slow-digesting carbohydrates: Oats, quinoa, brown rice, sweet potatoes, and whole grains.\n"
+            f"• Minimize refined white sugars, syrups, and ultra-processed sweets. This is especially important if you are taking corticosteroids like **Dexamethasone**, which can cause temporary spikes in blood glucose levels.\n\n"
+            f"**5. Critical Safety Alerts**:\n"
+            f"• **Avoid Grapefruit & Pomelos**: They inhibit the liver enzyme CYP3A4, which can dangerously increase blood levels of certain medications.\n"
+            f"• **Food Safety Hygiene**: When undergoing chemotherapy, maintain strict food hygiene (wash raw produce thoroughly, avoid raw meats/sushi) to guard against infection during periods of lower white blood cell counts.\n\n"
+            f"Would you like recommendations for gentle meal ideas, smoothie recipes, or managing appetite on chemotherapy days?"
+            + DISCLAIMER
+        )
 
     # Teas: Green Tea & Chamomile
     if _matches(["green tea", "chamomile", "tea", "herbal tea", "matcha"]):
@@ -491,6 +585,70 @@ def generate_ai_response(
     # =========================================================================
     # 7. SYMPTOMS & NEUROLOGICAL SENSATIONS
     # =========================================================================
+
+    # Clinical Triage & Doctor Escalation ("When should I see a doctor?")
+    if _matches([
+        "when should i see a doctor", "when to see a doctor", "when do i see a doctor",
+        "should i see a doctor", "when to call the doctor", "call the doctor", "see a physician",
+        "when to go to the doctor", "when to go to er", "when to visit clinic", "see my oncologist"
+    ]):
+        return (
+            f"### 🩺 When to Seek Medical Care: Clinical Triage Guidelines\n\n"
+            f"Hello {first_name}, knowing when to manage symptoms at home, when to contact your oncology navigator, and when to seek emergency attention is crucial for your safety.\n\n"
+            f"Here is a structured guideline developed with neuro-oncology standards:\n\n"
+            f"🚨 **Category 1: Immediate Emergency (Dial 112 / 108 in India, 911 in US, or Go Directly to Nearest ER)**\n"
+            f"Seek immediate emergency care without delay if you or a caregiver observe:\n"
+            f"• A sudden, explosive headache ('worst headache of your life' or thunderclap onset).\n"
+            f"• Sudden weakness, numbness, or paralysis in your face, arm, or leg (especially on one side).\n"
+            f"• Sudden difficulty speaking, slurred speech, or inability to comprehend speech.\n"
+            f"• Sudden vision loss, blurred vision, or severe double vision.\n"
+            f"• A new seizure, convulsion, or repeated seizure episodes.\n"
+            f"• Unresponsiveness, acute confusion, or loss of consciousness.\n"
+            f"• Repeated vomiting where no oral fluids or medications can be retained.\n\n"
+            f"🟡 **Category 2: Contact Your Care Team Promptly (Call within 24–48 Hours)**\n"
+            f"Reach out to **{nurse}** or **{oncologist}** if you experience:\n"
+            f"• A persistent headache that is not responding to Acetaminophen (Tylenol).\n"
+            f"• Mild new sensory tingling, twitching, or fleeting auras around your **{location}**.\n"
+            f"• Mild fever (above 100.4°F / 38.0°C) during chemotherapy cycles.\n"
+            f"• Redness, swelling, warmth, or drainage along your surgical incision site.\n"
+            f"• Missing a dose of your anti-seizure medication (Keppra) or vomiting your Temozolomide capsule.\n"
+            f"• Noticeable mood swings, irritability, or unusual agitation.\n\n"
+            f"🟢 **Category 3: Routine Clinical Visits & Monitoring**\n"
+            f"Discuss during your scheduled appointments:\n"
+            f"• Gradual mild fatigue or sleep pattern changes.\n"
+            f"• General nutrition, diet, or exercise questions.\n"
+            f"• Routine medication refills and review of stable 3D brain scan volumetrics.\n\n"
+            f"**Clinical Contacts Available**:\n"
+            f"• Attending Oncologist: **{oncologist}**\n"
+            f"• Oncology Navigator: **{nurse}**\n"
+            f"• Clinic Triage Line: `+91 (080) 4123-8900`"
+            + DISCLAIMER
+        )
+
+    # General Symptom Inquiries (Collecting details & asking follow-ups without diagnosing)
+    if _matches([
+        "common symptoms", "what symptoms", "symptom check", "symptom info",
+        "describe my symptom", "feeling sick", "check my symptoms", "symptom assessment",
+        "i have a symptom", "new symptom"
+    ]):
+        return (
+            f"### 🩺 Symptom Information & Guidance for {first_name}\n\n"
+            f"Thank you for reaching out. Monitoring your physical sensations and symptoms is a vital part of your healing journey.\n\n"
+            f"**Important Health Disclaimer**:\n"
+            f"*I am an AI healthcare companion and cannot diagnose medical diseases or provide clinical evaluations. The information below is general education to help you communicate effectively with your doctors.*\n\n"
+            f"**General Common Causes to Explore with Your Doctor**:\n"
+            f"• **Healing Post-Surgery**: Mild scalp soreness, localized sensitivity in the **{location}**, or minor nerve firing as dural tissues heal.\n"
+            f"• **Treatment-Related Fluid Shifts**: Mild vasogenic edema or temporary inflammation during radiation/chemotherapy.\n"
+            f"• **Medication Side Effects**: Transient drowsiness, fatigue, or mild nausea from Keppra or Temozolomide.\n"
+            f"• **Everyday Factors**: Dehydration, poor sleep, or eye strain.\n\n"
+            f"**To help provide more relevant general health information, could you share a bit more context?**\n\n"
+            f"1. ⏱️ **Duration**: How long have you been experiencing this symptom (hours, days, weeks)? Is it constant or intermittent?\n"
+            f"2. 📊 **Severity**: On a scale from 1 (very mild) to 10 (severe/unbearable), how would you rate it?\n"
+            f"3. ⚡ **Onset & Triggers**: Did it begin suddenly or develop gradually? Does any specific activity make it better or worse?\n"
+            f"4. ⚠️ **Associated Signs**: Do you have any fever, visual changes, or nausea along with it?\n\n"
+            f"💡 *Remember: If your symptom is sudden, severe, or feels like an emergency, dial **112 / 108** (India) or **911** (US) immediately rather than waiting.*"
+            + DISCLAIMER
+        )
 
     # Headaches
     if _matches(["headache", "head pain", "throbbing head", "head pressure"]):
@@ -634,7 +792,83 @@ def generate_ai_response(
             + DISCLAIMER
         )
 
-    # Questions for Doctor & Appointment Prep
+    # Appointment Preparation Checklist ("How can I prepare for an appointment?")
+    if _matches([
+        "prepare for an appointment", "prepare for appointment", "how to prepare for doctor",
+        "appointment preparation", "getting ready for appointment", "prepare for clinic",
+        "what to bring to doctor", "what to take to appointment", "prepare for my visit"
+    ]):
+        return (
+            f"### 📋 How to Prepare for Your Medical Appointment (Step-by-Step Checklist)\n\n"
+            f"Hello {first_name}! Thorough preparation helps you make the most of your consultation with **{oncologist}** and ensures all your questions and concerns are addressed.\n\n"
+            f"Here is your clinical preparation checklist:\n\n"
+            f"**1. 📝 Prioritize Your Questions in Advance**:\n"
+            f"• Write down your top 3 to 5 questions before your visit. Having them written down keeps the conversation focused and ensures you don't forget key points during the consultation.\n"
+            f"• *Suggested questions*: 'What did my latest 3T MRI show about tumor stability?', 'How is my rCBV perfusion tracking?', 'Are there any adjustments needed for my Keppra or Temozolomide?', 'When can we discuss driving clearance?'\n\n"
+            f"**2. 💊 Bring an Up-to-Date Medication List**:\n"
+            f"• List all current prescription medications (exact doses and timing: e.g., Keppra 500 mg BID, Temozolomide cycle dates).\n"
+            f"• Include over-the-counter pain relievers, antacids, vitamins, and herbal supplements.\n"
+            f"• Note any side effects you noticed (such as morning nausea or drowsiness).\n\n"
+            f"**3. 📊 Review Your Recent Symptom Log**:\n"
+            f"• Be ready to summarize any symptoms over the last few weeks: Headaches (frequency and intensity), sensory auras, fatigue levels, or word-finding pauses.\n"
+            f"• You can tap **'📝 Log Today\\'s Symptoms'** in the app anytime to build an organized record.\n\n"
+            f"**4. 📂 Bring Medical Records & Imaging Discs**:\n"
+            f"• If you have had any scans (MRI/CT), pathology slides, or lab blood tests done at an outside hospital, bring the physical CDs and printed reports.\n\n"
+            f"**5. 👥 Bring a Trusted Caregiver or Family Member**:\n"
+            f"• A second set of ears is invaluable. They can take notes, help remember instructions, and provide emotional support.\n\n"
+            f"**6. 📋 Ask for a Plain-Language Summary Before Leaving**:\n"
+            f"• Before you leave, repeat back the key takeaways in your own words: 'So my plan is to continue current doses and repeat the MRI in 8 weeks, correct?'\n"
+            f"• Ask who to call if you experience questions between appointments."
+            + DISCLAIMER
+        )
+
+    # Appointment Assistance & Schedule Viewing
+    if _matches([
+        "next appointment", "my appointment", "when is my visit", "upcoming visit",
+        "book appointment", "schedule appointment", "make an appointment", "reschedule appointment",
+        "view appointments", "appointment date", "when do i see doctor"
+    ]):
+        appt_text = ""
+        if appointments:
+            appt_lines = []
+            for a in appointments[:3]:
+                status_icon = "✅" if a.get("status") in ("Confirmed", "Scheduled") else "📅"
+                d_str = a.get("appt_date") or a.get("date") or "Upcoming"
+                t_str = a.get("appt_time") or a.get("time") or "10:00 AM"
+                s_str = a.get("service_type") or a.get("title") or "Consultation"
+                doc_str = a.get("doctor_name") or a.get("clinician") or oncologist
+                dept_str = a.get("department") or "Neuro-Oncology"
+                loc_str = a.get("location") or "Clinic Suite 4B"
+                prep_str = a.get("preparation_notes") or "Bring your recent symptom notes and medication list."
+                appt_lines.append(
+                    f"• {status_icon} **{d_str} at {t_str}**: {s_str}\n"
+                    f"  - **Clinician**: {doc_str} ({dept_str})\n"
+                    f"  - **Location**: {loc_str}\n"
+                    f"  - **Prep Note**: {prep_str}"
+                )
+            appt_text = "\n\n".join(appt_lines)
+        else:
+            next_d = patient.get("next_visit_date", "28-Oct-2026")
+            appt_text = (
+                f"• 📅 **{next_d} at 10:30 AM**: Neuro-Oncology Consultation & Volumetric Review\n"
+                f"  - **Clinician**: {oncologist}\n"
+                f"  - **Location**: Comprehensive Brain Tumor Clinic, Room 402\n"
+                f"  - **Preparation**: Bring your medication log and recent symptom notes."
+            )
+
+        return (
+            f"### 🗓️ Your Scheduled Appointments & Clinic Navigation\n\n"
+            f"Hello {first_name}, here are your appointment details from your clinical health record:\n\n"
+            f"{appt_text}\n\n"
+            f"**Need to Schedule, Reschedule, or Inquire?**\n"
+            f"• **Clinic Scheduling Desk**: `+91 (080) 4123-8900` / `+1 (555) 019-8492`\n"
+            f"• **Oncology Care Navigator**: {nurse}\n"
+            f"• **Clinic Hours**: Monday – Friday, 08:00 AM – 05:00 PM\n\n"
+            f"Would you like advice on how to prepare for your next consultation?"
+            + DISCLAIMER
+        )
+
+    # Questions for Doctor & Consultation Prep
     if _matches(["doctor", "ask", "question", "appointment", "visit", "second opinion", "consult"]):
         return (
             f"### 📋 Recommended Questions for Your Next Visit with {oncologist}\n\n"
@@ -644,6 +878,7 @@ def generate_ai_response(
             f"3. *\"Based on my current seizure stability on Keppra 500 mg BID, when can we discuss driving clearance?\"*\n"
             f"4. *\"Are there complementary neuro-cognitive therapies or physical rehabilitation exercises that will help my verbal memory in the {location}?\"*\n"
             f"5. *\"When is my next surveillance 3T MRI scheduled?\"*"
+            + DISCLAIMER
         )
 
     # Greetings & Introductions

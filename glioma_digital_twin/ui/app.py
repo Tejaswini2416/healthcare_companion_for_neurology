@@ -46,6 +46,10 @@ from glioma_digital_twin.ui.components.doctor_login import (
     logout_any_user
 )
 from glioma_digital_twin.utils.supabase_client import get_database_client
+from glioma_digital_twin.ui.components.companion_chat import (
+    render_companion_chat,
+    render_floating_chat_widget
+)
 
 
 def main():
@@ -143,6 +147,7 @@ def main():
             st.markdown("##### 📍 Patient Navigation")
             patient_nav_items = [
                 ("🏠 My Health Dashboard", "dashboard"),
+                ("💬 AI Health Companion", "companion"),
                 ("📝 Log My Symptoms", "symptoms"),
                 ("📋 My Scans & Reports", "reports"),
                 ("🧠 3D Brain & Tumor Localization", "mri_3d"),
@@ -230,6 +235,7 @@ def main():
             nav_items = [
                 ("👨‍⚕️ Doctor Cohort Inspector", "login"),
                 ("🩺 Clinician Workstation", "clinician"),
+                ("💬 AI Care Companion", "companion"),
                 ("📝 Write & Log Reports", "write_report"),
                 ("🧠 3D Brain & MRI Volumetrics", "mri_3d"),
                 ("💊 Medication Governance", "medications"),
@@ -322,11 +328,10 @@ def main():
                 render_clinician_workstation()
             else:
                 render_symptom_logger()
-        elif st.session_state.current_view in ["companion", "medications"]:
-            if pat_authenticated:
-                render_patient_dashboard(on_navigate=navigate_to)
-            else:
-                render_clinician_workstation()
+        elif st.session_state.current_view == "companion":
+            render_companion_chat(show_meds=False)
+        elif st.session_state.current_view == "medications":
+            render_companion_chat(show_meds=True)
         elif st.session_state.current_view == "trends":
             render_longitudinal_trends()
         else:
@@ -334,6 +339,11 @@ def main():
                 render_patient_dashboard(on_navigate=navigate_to)
             else:
                 render_clinician_workstation()
+
+        # Quick-access floating healthcare assistant drawer available across all dashboard views
+        if st.session_state.current_view != "companion":
+            st.write("")
+            render_floating_chat_widget()
 
 
 if __name__ == "__main__":

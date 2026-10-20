@@ -179,10 +179,14 @@ def render_doctor_login(on_success: Optional[Callable[[], None]] = None):
             unsafe_allow_html=True
         )
 
-        col_p_nav1, col_p_logout = st.columns([2, 1])
+        col_p_nav1, col_p_chat, col_p_logout = st.columns([1.5, 1.5, 1])
         with col_p_nav1:
             if st.button("🏠 Open My Health Dashboard", type="primary", use_container_width=True):
                 st.session_state.current_view = "dashboard"
+                st.rerun()
+        with col_p_chat:
+            if st.button("💬 AI Health Companion", type="primary", use_container_width=True):
+                st.session_state.current_view = "companion"
                 st.rerun()
         with col_p_logout:
             if st.button("🔒 Sign Out Patient", type="secondary", use_container_width=True):
@@ -190,20 +194,24 @@ def render_doctor_login(on_success: Optional[Callable[[], None]] = None):
 
         st.divider()
         st.markdown("##### ⚡ Quick Patient Links")
-        q_cols = st.columns(4)
+        q_cols = st.columns(5)
         with q_cols[0]:
+            if st.button("💬 Chat AI Companion", key="p_link_comp", use_container_width=True):
+                st.session_state.current_view = "companion"
+                st.rerun()
+        with q_cols[1]:
             if st.button("📋 Scans & Reports", key="p_link_rep", use_container_width=True):
                 st.session_state.current_view = "reports"
                 st.rerun()
-        with q_cols[1]:
+        with q_cols[2]:
             if st.button("📝 Log Today's Symptoms", key="p_link_sym", use_container_width=True):
                 st.session_state.current_view = "symptoms"
                 st.rerun()
-        with q_cols[2]:
-            if st.button("📈 Longitudinal Trends", key="p_link_tr", use_container_width=True):
+        with q_cols[3]:
+            if st.button("📈 Health Trends", key="p_link_tr", use_container_width=True):
                 st.session_state.current_view = "trends"
                 st.rerun()
-        with q_cols[3]:
+        with q_cols[4]:
             if st.button("📤 Upload Brain MRI", key="p_link_mri", use_container_width=True):
                 st.session_state.current_view = "evaluator"
                 st.rerun()
@@ -237,14 +245,18 @@ def render_doctor_login(on_success: Optional[Callable[[], None]] = None):
             unsafe_allow_html=True
         )
 
-        col_top_act1, col_top_act2, col_top_act3 = st.columns([2, 1.2, 0.8])
+        col_top_act1, col_top_act2, col_top_act3, col_top_act4 = st.columns([1.6, 1.2, 1.2, 0.8])
         with col_top_act1:
-            st.info("💡 You are logged in as an attending physician. Inspect patient details below or enter the Clinical Workstation console.")
+            st.info("💡 Attending physician session active. Inspect cohort or launch clinical tools.")
         with col_top_act2:
-            if st.button("🩺 Enter Full Clinician Workstation", type="primary", use_container_width=True):
+            if st.button("🩺 Clinician Workstation", type="primary", use_container_width=True):
                 st.session_state.current_view = "clinician"
                 st.rerun()
         with col_top_act3:
+            if st.button("💬 AI Care Companion", use_container_width=True):
+                st.session_state.current_view = "companion"
+                st.rerun()
+        with col_top_act4:
             if st.button("🔒 Sign Out", type="secondary", use_container_width=True):
                 logout_doctor()
 

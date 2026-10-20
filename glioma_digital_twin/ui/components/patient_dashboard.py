@@ -124,10 +124,32 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
 
     st.write("")
 
+    # 3.5 AI Healthcare Companion Quick Launch Banner
+    st.markdown(
+        """
+        <div style="background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); border-radius: 10px; padding: 14px 20px; color: white; margin: 8px 0 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.06);">
+            <div style="font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                💬 AI Health Companion Ready
+            </div>
+            <div style="font-size: 0.86rem; opacity: 0.92; margin-top: 3px;">
+                Ask questions about symptoms, healthy nutrition & diet, medication adherence, or your upcoming appointments.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    col_c1, col_c2 = st.columns([3.5, 1.5])
+    with col_c2:
+        if st.button("💬 Launch Companion Chat", key="btn_launch_companion_dash", type="primary", use_container_width=True):
+            on_navigate("companion")
+
     # 4. Quick-Access Action Grid
     st.markdown("##### ⚡ Quick Access")
-    q1, q2, q3, q4, q5, q6 = st.columns(6)
+    q0, q1, q2, q3, q4, q5 = st.columns(6)
 
+    with q0:
+        if st.button("💬 AI Companion", use_container_width=True, type="primary", help="Chat with AI Health Companion"):
+            on_navigate("companion")
     with q1:
         if st.button("📋 Scans & Reports", use_container_width=True, help="Inspect MRI and plain-language patient reports"):
             on_navigate("reports")
@@ -143,9 +165,6 @@ def render_patient_dashboard(on_navigate: Callable[[str], None]):
     with q5:
         if st.button("📤 Upload MRI Scan", use_container_width=True, help="Upload and evaluate brain scan"):
             on_navigate("evaluator")
-    with q6:
-        if st.button("📄 Upload Reports", use_container_width=True, help="Upload and analyze clinical text reports"):
-            on_navigate("report_verify")
 
     st.divider()
 
