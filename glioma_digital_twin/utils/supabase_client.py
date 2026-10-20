@@ -178,6 +178,33 @@ class DatabaseClient:
             return False, self.connection_error
 
         try:
+            import urllib.parse
+            import threading
+            parsed_host = urllib.parse.urlparse(url).hostname
+            if parsed_host:
+                dns_res = []
+                def _resolve():
+                    try:
+                        import socket
+                        socket.gethostbyname(parsed_host)
+                        dns_res.append(True)
+                    except Exception:
+                        pass
+                t = threading.Thread(target=_resolve, daemon=True)
+                t.start()
+                t.join(timeout=1.0)
+                if not dns_res:
+                    self.connection_error = f"Supabase host {parsed_host} unreachable within 1.0s"
+                    self.is_connected_to_supabase = False
+                    print(f"[DatabaseClient] Remote Supabase host ({url}) not reachable. Reverting to local resilient storage.")
+                    return False, self.connection_error
+        except Exception as dns_err:
+            self.connection_error = f"Cannot resolve Supabase host: {dns_err}"
+            self.is_connected_to_supabase = False
+            print(f"[DatabaseClient] Remote Supabase host ({url}) not reachable. Reverting to local resilient storage.")
+            return False, self.connection_error
+
+        try:
             client = create_client(url, key)
             # Lightweight probe query
             res = client.table("patients").select("patient_id").limit(1).execute()

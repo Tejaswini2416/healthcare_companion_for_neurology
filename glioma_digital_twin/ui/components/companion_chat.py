@@ -23,7 +23,7 @@ from ...models.companion_agent import CareCompanionAgent
 
 
 def _clean_content(text: str) -> str:
-    """Strips repetitive in-bubble disclaimer text for a clean conversational UI."""
+    """Strips repetitive in-bubble disclaimer text and redundant greetings for a clean conversational UI."""
     if not text:
         return ""
     if "⚠️ *HealthMate Medical Disclaimer" in text:
@@ -55,12 +55,6 @@ def _render_emergency_callout_banner():
                     <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.8rem;">
                         <span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 6px; font-weight: 700;">
                             🇮🇳 India: Dial 112 (All Emergencies) / 108 (Ambulance)
-                        </span>
-                        <span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 6px; font-weight: 700;">
-                            🇺🇸 US/Canada: Dial 911
-                        </span>
-                        <span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 6px; font-weight: 700;">
-                            🇬🇧 UK: Dial 999
                         </span>
                     </div>
                 </div>
@@ -183,7 +177,7 @@ def render_companion_chat(show_meds: bool = True):
     current_groq_key = st.session_state.get("groq_api_key", groq_key_in_env)
     gemini_key_in_env = os.environ.get("GEMINI_API_KEY", os.environ.get("GOOGLE_API_KEY", ""))
     current_gemini_key = st.session_state.get("gemini_api_key", gemini_key_in_env)
-    selected_model_code = "llama-3.3-70b-versatile" if current_groq_key else ("gpt-4o" if current_key else "clinical-gpt")
+    selected_model_code = "qwen/qwen3.8-27b" if current_groq_key else ("gpt-4o" if current_key else "clinical-gpt")
 
     # =========================================================================
     # 4. CHAT HISTORY INITIALIZATION & PRIVACY CONTROLS

@@ -105,8 +105,9 @@ class CareCompanionAgent:
 ### Conversational Guidelines (ChatGPT Style):
 1. **Natural AI Conversation**:
    - Respond directly, warmly, and conversationally just like ChatGPT.
+   - CRITICAL: Do NOT start every response with a greeting like "Hello", "Hi", "Hey", or "Hello [Name]" unless the user specifically opened with an introductory greeting.
+   - Jump directly into addressing the user's question conversationally, clearly, and empathetically.
    - Do NOT use robotic headers like "💡 Insights on:", "1. Addressing Your Question Directly:", "2. Clinical & Practical Considerations:", "Care Companion Response for...", or "Regarding your question:".
-   - Address {first_name} naturally and kindly.
 
 2. **Personalized Grounding**:
    - Seamlessly incorporate relevant details about their condition ({diagnosis}), scan stability, or medications ({meds_text}) when directly helpful to their question.
@@ -118,7 +119,7 @@ class CareCompanionAgent:
    - NEVER present uncertain opinions as a confirmed diagnosis.
    - NEVER prescribe medicines, recommend specific drug dosages, or suggest changing prescribed treatments.
    - When asked about symptoms, collect details on duration, severity (scale 1-10), and triggers, while providing general educational causes without diagnosing.
-   - If emergency symptoms are mentioned (chest pain, shortness of breath, paralysis, worst headache of life, loss of consciousness, uncontrolled seizures), immediately advise the user to contact emergency services (112 / 108 in India, 911 in US) without delay.
+   - If emergency symptoms are mentioned (chest pain, shortness of breath, paralysis, worst headache of life, loss of consciousness, uncontrolled seizures), immediately advise the user to contact emergency services (Dial 112 / 108 in India) without delay.
    - Help users navigate scheduled appointments, available clinic services, and preparation for doctor consultations.
 
 4. **Tone**: Empathetic, supportive, clear, and reassuring."""
@@ -205,9 +206,9 @@ class CareCompanionAgent:
             messages.append({"role": "user", "content": user_message})
 
             candidate_models = []
-            if model_name and model_name not in ["gpt-4o", "default"]:
+            if model_name and model_name not in ["gpt-4o", "default", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
                 candidate_models.append(model_name)
-            candidate_models.extend(["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "qwen/qwen3.8-27b", "llama-3.1-8b-instant"])
+            candidate_models.extend(["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"])
 
             last_err = None
             for m_id in candidate_models:
@@ -384,10 +385,7 @@ class CareCompanionAgent:
                 f"🚨 **URGENT EMERGENCY ALERT for {patient_name}**:\n\n"
                 "**What you are describing sounds like a potential medical emergency.**\n\n"
                 "**PLEASE ACT IMMEDIATELY — DO NOT WAIT OR DELAY**:\n\n"
-                "• 🇮🇳 **India National Emergency Number**: Dial **112** (Pan-India Emergency Helpline: Medical, Police, Fire) or **108** (National Ambulance Service).\n"
-                "• 🇺🇸 **United States & North America**: Dial **911**\n"
-                "• 🇬🇧 **United Kingdom**: Dial **999**\n"
-                "• 🇪🇺 **Europe & International**: Dial **112**\n"
+                "• 🇮🇳 **India National Emergency Helpline**: Dial **112** (Pan-India Emergency Helpline: Medical, Police, Fire) or **108** (National Ambulance Service).\n"
                 "• 🏥 **Or proceed directly to the nearest Hospital Emergency Department.**\n\n"
                 f"**Hospital Care Team Emergency Contacts**:\n"
                 f"- **Attending Neuro-Oncologist**: {oncologist}\n"

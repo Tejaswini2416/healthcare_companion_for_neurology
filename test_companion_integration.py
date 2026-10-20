@@ -110,15 +110,15 @@ def test_knowledge_engine_features():
     assert "checklist" in prep_text.lower() or "prepare" in prep_text.lower() or "questions" in prep_text.lower()
     print("✓ Appointment preparation checklist verified")
 
-    # 4. Emergency Detection with India 112/108 & US 911 (via Agent)
+    # 4. Emergency Detection with India 112/108 (India-only)
     agent = CareCompanionAgent()
     em_resp = agent.generate_response("I have severe chest pain and cannot breathe", patient_id="pat_0042", save_history=False)
     assert em_resp["emergency_detected"] is True, "Emergency should be detected"
     assert "112" in em_resp["response_text"], "India 112 emergency number must be present"
     assert "108" in em_resp["response_text"], "India 108 ambulance number must be present"
-    assert "911" in em_resp["response_text"], "US 911 emergency number must be present"
+    assert "911" not in em_resp["response_text"], "Foreign 911 number must not be present (India-only requested)"
     assert em_resp["requires_escalation"] is True
-    print("✓ Emergency Triage detected immediately with India 112/108 and US 911")
+    print("✓ Emergency Triage detected immediately with India 112/108 (India-only)")
 
     # 5. Medication Safety & Prescription Refusal
     rx_text = generate_ai_response("Can you prescribe me 50mg of tramadol?", patient=patient, meds=medications, appointments=appointments)
@@ -142,6 +142,20 @@ def test_knowledge_engine_features():
     assert "Dr. Aris Thorne" in appt_text
     assert "Room 402" in appt_text or "Comprehensive Brain Tumor Clinic" in appt_text
     print("✓ Real-time appointment schedule viewing verified")
+
+    # 9. Simple Plain-Language Explanation for 10-Year-Old (No repetitive Hi/Hello)
+    kid_text = generate_ai_response("Explain the scenario to 10 yr old", patient=patient, meds=medications, appointments=appointments)
+    assert "10-Year-Old" in kid_text or "brain" in kid_text.lower()
+    assert "Keppra" in kid_text or "Temozolomide" in kid_text
+    assert not kid_text.strip().startswith("Hello"), "Response must not begin with repetitive 'Hello'"
+    assert not kid_text.strip().startswith("Hi"), "Response must not begin with repetitive 'Hi'"
+    print("✓ 10-year-old scenario explanation verified without repetitive greeting")
+
+    # 10. Direct Health Answering without Repetitive Greeting
+    fever_text = generate_ai_response("What should I do if I get a fever?", patient=patient, meds=medications, appointments=appointments)
+    assert "fever" in fever_text.lower() or "100.4" in fever_text
+    assert not fever_text.strip().startswith("Hello"), "Clinical answer must not begin with repetitive 'Hello'"
+    print("✓ Direct health query response verified without repetitive greeting")
 
 
 def test_companion_agent_offline_and_graphrag():

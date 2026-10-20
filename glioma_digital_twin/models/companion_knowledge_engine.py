@@ -83,10 +83,7 @@ def generate_ai_response(
             f"🚨 **URGENT EMERGENCY ALERT for {patient_name}**:\n\n"
             "**What you are describing sounds like a potential medical emergency.**\n\n"
             "**PLEASE ACT IMMEDIATELY — DO NOT DELAY OR WAIT FOR FURTHER CHAT RESPONSES**:\n\n"
-            "• 🇮🇳 **India National Emergency Number**: Dial **112** (All-in-One Emergency Helpline: Medical, Fire, Police) or **108** (Emergency Ambulance Service).\n"
-            "• 🇺🇸 **United States & North America**: Dial **911**\n"
-            "• 🇬🇧 **United Kingdom**: Dial **999**\n"
-            "• 🇪🇺 **Europe & International**: Dial **112**\n"
+            "• 🇮🇳 **India National Emergency Helpline**: Dial **112** (All-in-One Emergency Helpline: Medical, Fire, Police) or **108** (Emergency Ambulance Service).\n"
             "• 🏥 **Or proceed directly to the nearest Hospital Emergency Department without delay.**\n\n"
             f"**Your Hospital Care Team Emergency Contacts**:\n"
             f"- **Attending Neuro-Oncologist**: {oncologist}\n"
@@ -111,7 +108,7 @@ def generate_ai_response(
     if any(k in msg_lower for k in rx_safety_kws):
         return (
             f"### 🛡️ Medication Safety Notice: Prescription & Dosage Safeguards\n\n"
-            f"Hello {first_name}, I want to clarify an essential medical and clinical safety boundary:\n\n"
+            f"I want to clarify an essential medical and clinical safety boundary:\n\n"
             f"⚠️ **I am HealthMate, an AI healthcare companion. I CANNOT prescribe medications, recommend specific drug dosages, or advise you to change or adjust prescribed treatments.**\n\n"
             f"**Why This Strict Policy Exists to Protect Your Health**:\n"
             f"• **Never adjust doses independently**: Prescribing medicines or altering chemotherapy/anticonvulsant doses requires an authorized physician or prescribing physician who evaluates real-time lab panels (CBC, liver/kidney function) and drug interactions.\n"
@@ -323,7 +320,10 @@ def generate_ai_response(
     # =========================================================================
 
     # Craniotomy & Surgical Techniques (Awake Mapping, 5-ALA)
-    if _matches(["craniotomy", "surgery", "resection", "awake surgery", "5-ala", "pink drink"]):
+    surgery_intent = _matches(["craniotomy", "awake surgery", "5-ala", "pink drink", "surgical technique", "how does surgery work", "how surgery works"]) or (
+        _matches(["surgery", "resection"]) and not any(k in msg_lower for k in ["shower", "wash", "hair", "drive", "driving", "exercise", "walk", "yoga", "diet", "food", "pain", "scar", "incision", "stitch", "staple", "sleep", "10", "child", "eli5"])
+    )
+    if surgery_intent:
         return (
             f"### 🔪 Modern Brain Surgery: Precision & Safety\n\n"
             f"Neurosurgery today utilizes miraculous precision guidance tools:\n\n"
@@ -334,7 +334,10 @@ def generate_ai_response(
         )
 
     # Radiation Therapy Mechanics
-    if _matches(["radiation", "radiotherapy", "imrt", "vmat", "proton", "beam", "fraction"]):
+    radiation_intent = _matches(["radiotherapy", "imrt", "vmat", "proton", "beam", "fraction", "how does radiation work", "how radiation works"]) or (
+        _matches(["radiation"]) and not any(k in msg_lower for k in ["diet", "food", "eat", "fatigue", "tired", "hair", "skin", "cream", "sleep", "exercise", "10", "child", "eli5"])
+    )
+    if radiation_intent:
         return (
             f"### ⚡ Radiation Therapy & How It Protects the Brain\n\n"
             f"Radiation therapy delivers targeted ionizing energy to eliminate microscopic cells that surgery cannot reach:\n\n"
@@ -345,7 +348,10 @@ def generate_ai_response(
         )
 
     # Chemotherapy: Temozolomide Mechanics
-    if _matches(["temozolomide", "tmz", "temodar", "chemotherapy", "chemo"]):
+    chemo_intent = _matches(["temozolomide", "tmz", "temodar", "how does chemo work", "about chemo", "chemotherapy mechanics", "oral chemo", "how chemotherapy works"]) or (
+        _matches(["chemotherapy", "chemo"]) and not any(k in msg_lower for k in ["fever", "nausea", "vomit", "eat", "food", "diet", "exercise", "walk", "yoga", "vitamin", "test", "cbc", "temp", "chill", "hair", "pain", "sleep", "miss", "10", "child", "eli5"])
+    )
+    if chemo_intent:
         return (
             f"### 💊 Temozolomide (TMZ): How Your Chemotherapy Works\n\n"
             f"• **Mechanism**: Temozolomide is an oral alkylating agent. Once ingested, it spontaneously breaks down into an active compound (MTIC) that attaches methyl groups to the DNA of tumor cells, triggering apoptosis (programmed cell death).\n"
@@ -378,7 +384,7 @@ def generate_ai_response(
     ]):
         return (
             f"### 🛡️ Medication Safety Notice: Prescription & Dosage Safeguards\n\n"
-            f"Hello {first_name}, I want to clarify an essential medical and safety boundary:\n\n"
+            f"I want to clarify an essential medical and safety boundary:\n\n"
             f"⚠️ **I am HealthMate, an AI healthcare companion. I CANNOT prescribe medications, recommend specific drug dosages, or advise you to change or stop prescribed treatments.**\n\n"
             f"**Why This Strict Policy Exists to Protect Your Health**:\n"
             f"• Prescribing medicines or altering doses requires a certified physician who has examined your real-time organ lab panels (CBC, kidney and liver enzymes), molecular biomarkers, and drug-drug interactions.\n"
@@ -438,7 +444,7 @@ def generate_ai_response(
     ]):
         return (
             f"### 🥗 Maintaining a Healthy Diet & Optimal Nutrition (WHO & NHS Guidelines)\n\n"
-            f"Hello {first_name}! Nutrition plays a vital supportive role in cognitive recovery, tissue repair, and immune resilience during care for **{diagnosis}**.\n\n"
+            f"Nutrition plays a vital supportive role in cognitive recovery, tissue repair, and immune resilience during care for **{diagnosis}**.\n\n"
             f"Here are evidence-grounded dietary principles backed by the **World Health Organization (WHO)** and **NHS Oncology Nutrition Services**:\n\n"
             f"**1. Emphasize Anti-Inflammatory Whole Foods**:\n"
             f"• **Colorful Vegetables & Fruits**: Eat a rainbow of produce (spinach, kale, carrots, bell peppers, blueberries, avocados). These are rich in polyphenols and antioxidants that protect healthy brain cells from oxidative stress.\n"
@@ -568,7 +574,7 @@ def generate_ai_response(
     if _matches(["exercise", "gym", "workout", "weights", "yoga", "running", "swim", "swimming"]):
         return (
             f"### 🏃 Exercise, Movement & Physical Activity Guidelines\n\n"
-            f"• **Highly Recommended**: Daily 20–30 minute walks, gentle stationary cycling, and restorative stretching promote circulation, elevate mood, and reduce cancer-related fatigue.\n"
+            f"• **Highly Recommended**: Daily 20–30 minute walks, gentle restorative yoga, stationary cycling, and light stretching promote healthy blood circulation, elevate mood, and foster daily wellness while reducing cancer-related fatigue.\n"
             f"• **Avoid Heavy Weightlifting**: Straining or holding your breath (the Valsalva maneuver) temporarily spikes intracranial pressure and must be avoided.\n"
             f"• **Swimming Precautions**: Due to unpredictable seizure risk, **never swim alone**. Open-water or deep-end swimming is discouraged until long-term seizure clearance is established."
         )
@@ -594,9 +600,9 @@ def generate_ai_response(
     ]):
         return (
             f"### 🩺 When to Seek Medical Care: Clinical Triage Guidelines\n\n"
-            f"Hello {first_name}, knowing when to manage symptoms at home, when to contact your oncology navigator, and when to seek emergency attention is crucial for your safety.\n\n"
+            f"Knowing when to manage symptoms at home, when to contact your oncology navigator, and when to seek emergency attention is crucial for your safety.\n\n"
             f"Here is a structured guideline developed with neuro-oncology standards:\n\n"
-            f"🚨 **Category 1: Immediate Emergency (Dial 112 / 108 in India, 911 in US, or Go Directly to Nearest ER)**\n"
+            f"🚨 **Category 1: Immediate Emergency (Dial 112 / 108 in India or Go Directly to Nearest ER)**\n"
             f"Seek immediate emergency care without delay if you or a caregiver observe:\n"
             f"• A sudden, explosive headache ('worst headache of your life' or thunderclap onset).\n"
             f"• Sudden weakness, numbness, or paralysis in your face, arm, or leg (especially on one side).\n"
@@ -646,7 +652,7 @@ def generate_ai_response(
             f"2. 📊 **Severity**: On a scale from 1 (very mild) to 10 (severe/unbearable), how would you rate it?\n"
             f"3. ⚡ **Onset & Triggers**: Did it begin suddenly or develop gradually? Does any specific activity make it better or worse?\n"
             f"4. ⚠️ **Associated Signs**: Do you have any fever, visual changes, or nausea along with it?\n\n"
-            f"💡 *Remember: If your symptom is sudden, severe, or feels like an emergency, dial **112 / 108** (India) or **911** (US) immediately rather than waiting.*"
+            f"💡 *Remember: If your symptom is sudden, severe, or feels like an emergency, dial **112 / 108** (India) immediately rather than waiting.*"
             + DISCLAIMER
         )
 
@@ -698,16 +704,30 @@ def generate_ai_response(
     # 8. CURRENT HEALTH CONDITION & 10-YEAR-OLD EXPLANATIONS
     # =========================================================================
 
-    # Simple plain-language explanation
-    if _matches(["10 year old", "10-year-old", "ten year old", "simple terms", "simple words", "eli5", "plain english", "explain simply", "like a child", "kid", "simply"]):
+    # Simple plain-language explanation (e.g., 10-year-old / child / plain english)
+    if _matches([
+        "10 yr", "10-yr", "10 year", "10-year", "ten year", "kid", "child", "children",
+        "eli5", "plain english", "explain simply", "simple words", "simple terms",
+        "like a child", "to a child", "to a 10", "for a 10", "explain to 10", "scenario to 10",
+        "to 10 yr old", "to 10 year old", "explain the scenario to 10", "tell a child", "easy to understand"
+    ]):
         return (
-            f"Hello {first_name}! In simple terms:\n\n"
-            f"Your latest scan and health records show very reassuring stability. "
-            f"The treated area in your **{location}** is quiet and well-controlled following surgery, with the residual spot measuring around {et_v:.1f} cm³.\n\n"
-            f"• **Healing Response**: The microvascular blood flow (rCBV of {rcbv:.2f}) is low, which shows that the area is responding to treatment with positive healing (pseudoprogression) rather than new tumor growth.\n"
-            f"• **Medications Working Together**: Your daily medications—**Temozolomide** and **Keppra**—continue to actively protect your brain tissue and prevent seizures.\n"
-            f"• **Daily Recovery**: To help your brain recover, prioritize 8 hours of sleep, drink plenty of water, take your medications on time, and take breaks whenever you feel tired.\n\n"
-            f"Let me know if there's any particular question or scan detail you'd like to talk about!"
+            f"### 🧠 Your Health Story Explained Simply (For a 10-Year-Old)\n\n"
+            f"Think of your brain like a bustling, wonderful city where different neighborhoods help you think, speak, and remember things:\n\n"
+            f"1. **What Happened?**\n"
+            f"Inside one neighborhood of the brain called the **{location}** (which helps find words and remember stories), a small cluster of helper cells started growing faster than they should. Doctors call this a glioma.\n\n"
+            f"2. **The Surgeon's Mission**:\n"
+            f"Skillful neurosurgeons carefully went in and removed the unwanted bump to protect the brain neighborhood and keep it safe.\n\n"
+            f"3. **Your Daily Medicine Helpers**:\n"
+            f"• **Keppra**: Like quiet safety guards who make sure the electrical signals in your brain stay peaceful, preventing sudden hiccups or twitches (seizures).\n"
+            f"• **Temozolomide**: Tiny microscopic helpers that patrol the area to keep everything clean and prevent unwanted cells from returning.\n\n"
+            f"4. **What the Brain Pictures (MRI) Show**:\n"
+            f"The latest brain scan pictures show that the treated area is very calm and resting. The small spot remaining ({et_v:.1f} cm³) is just gentle healing tissue settling down after surgery—not active new growth!\n\n"
+            f"5. **Everyday Superpowers for Brain Healing**:\n"
+            f"• **Deep Sleep**: Getting 8 hours of sleep allows your brain's natural nighttime cleaning crew to repair tissue.\n"
+            f"• **Water & Good Food**: Drinking water flushes out medicine and keeps your energy up.\n"
+            f"• **Gentle Rest**: Taking calm breaks whenever you feel tired helps your brain stay strong!"
+            + DISCLAIMER
         )
 
     # Current Health Condition & Overall Diagnosis Status
@@ -720,7 +740,7 @@ def generate_ai_response(
     ]):
         return (
             f"### 🩺 Comprehensive Overview of Your Current Health & Condition\n\n"
-            f"Hello {first_name}, here is a clear, compassionate, and medically grounded overview of your health journey:\n\n"
+            f"Here is a clear, compassionate, and medically grounded overview of your health journey:\n\n"
             f"**1. Understanding Your Diagnosis**:\n"
             f"You have been diagnosed with **{diagnosis}** located in your **{location}**.\n"
             f"• This is a tumor of the brain's supportive glial tissue. Because it is situated in the **{location}** "
@@ -747,7 +767,7 @@ def generate_ai_response(
     if _matches(["scan", "mri", "latest scan", "result", "volume", "tumor size", "edema", "growing", "spread", "shrink", "imaging"]):
         return (
             f"### 🧠 Detailed Interpretation of Your Brain MRI ({scan_date})\n\n"
-            f"Hello {first_name}, here is a comprehensive breakdown of your latest volumetric neuro-imaging results:\n\n"
+            f"Here is a comprehensive breakdown of your latest volumetric neuro-imaging results:\n\n"
             f"**1. 3D Tumor Volumetrics (Digital Twin Decomposition)**:\n"
             f"• **Whole Tumor (WT)**: **{wt_v:.2f} cm³** — Represents the entire surgical bed and surrounding reactive tissue.\n"
             f"• **Enhancing Tumor Core (ET)**: **{et_v:.2f} cm³** — This is the residual post-operative surgical margin in your **{location}**. Crucially, this volume has remained stable without interval nodular progression.\n"
@@ -765,7 +785,7 @@ def generate_ai_response(
     if _matches(["scared", "fear", "anxious", "anxiety", "depressed", "depression", "sad", "crying", "terrified", "hopeless", "hug", "family", "kids", "children", "contagious", "catch", "kiss"]):
         return (
             f"### 💙 Emotional Support & Family Safety for {patient_name}\n\n"
-            f"Hello {first_name}, it takes immense courage to walk this path, and whatever emotions you are feeling right now are completely valid:\n\n"
+            f"It takes immense courage to walk this path, and whatever emotions you are feeling right now are completely valid:\n\n"
             f"**1. Reassurance on Family & Closeness**:\n"
             f"• **Brain tumors are NOT contagious**: You cannot pass cancer to your family, children, or loved ones.\n"
             f"• **Hugs and kisses are completely safe**: You do not carry radioactivity after external beam radiation.\n"
@@ -780,7 +800,7 @@ def generate_ai_response(
     if _matches(["prognosis", "survival", "cure", "future", "life expectancy", "will i be okay", "am i dying", "getting better", "recover", "hope", "timeline", "long term"]):
         return (
             f"### 🌅 Understanding Your Prognosis & Path Forward\n\n"
-            f"Hello {first_name}, asking about your future and prognosis is one of the most honest and important questions in neuro-oncology. Here is a balanced, evidence-based medical perspective:\n\n"
+            f"Asking about your future and prognosis is one of the most honest and important questions in neuro-oncology. Here is a balanced, evidence-based medical perspective:\n\n"
             f"**1. Individualized Care, Not Generalized Numbers**:\n"
             f"Broad statistics often group together patients of all ages, genomic backgrounds, and eras. Today, your treatment for **{diagnosis}** in the **{location}** is guided by modern multimodal neuro-oncology and your digital twin biomarkers.\n\n"
             f"**2. Reassuring Indicators in Your Digital Twin**:\n"
@@ -800,7 +820,7 @@ def generate_ai_response(
     ]):
         return (
             f"### 📋 How to Prepare for Your Medical Appointment (Step-by-Step Checklist)\n\n"
-            f"Hello {first_name}! Thorough preparation helps you make the most of your consultation with **{oncologist}** and ensures all your questions and concerns are addressed.\n\n"
+            f"Thorough preparation helps you make the most of your consultation with **{oncologist}** and ensures all your questions and concerns are addressed.\n\n"
             f"Here is your clinical preparation checklist:\n\n"
             f"**1. 📝 Prioritize Your Questions in Advance**:\n"
             f"• Write down your top 3 to 5 questions before your visit. Having them written down keeps the conversation focused and ensures you don't forget key points during the consultation.\n"
@@ -858,7 +878,7 @@ def generate_ai_response(
 
         return (
             f"### 🗓️ Your Scheduled Appointments & Clinic Navigation\n\n"
-            f"Hello {first_name}, here are your appointment details from your clinical health record:\n\n"
+            f"Here are your appointment details from your clinical health record:\n\n"
             f"{appt_text}\n\n"
             f"**Need to Schedule, Reschedule, or Inquire?**\n"
             f"• **Clinic Scheduling Desk**: `+91 (080) 4123-8900` / `+1 (555) 019-8492`\n"
@@ -869,7 +889,7 @@ def generate_ai_response(
         )
 
     # Questions for Doctor & Consultation Prep
-    if _matches(["doctor", "ask", "question", "appointment", "visit", "second opinion", "consult"]):
+    if _matches(["questions for doctor", "ask doctor", "ask oncologist", "consultation questions", "second opinion"]):
         return (
             f"### 📋 Recommended Questions for Your Next Visit with {oncologist}\n\n"
             f"Here are targeted questions grounded in your Digital Twin to discuss at your upcoming clinic appointment:\n\n"
@@ -881,11 +901,11 @@ def generate_ai_response(
             + DISCLAIMER
         )
 
-    # Greetings & Introductions
-    if _matches(["hello", "hi", "hey", "who are you", "what can you do", "good morning", "good evening", "how are you"]):
+    # Explicit Greetings & Introductions
+    if _matches(["hello", "hi", "hey", "who are you", "what can you do", "good morning", "good evening"]):
         return (
-            f"### 👋 Hello {first_name}! I am HealthMate, your AI Healthcare Companion & Digital Twin GPT\n\n"
-            f"I am your empathetic and intelligent personal health companion, built to support you with wellness tracking, health literacy, symptom awareness, and medication reminders.\n\n"
+            f"### 👋 Hello! I am HealthMate, your AI Healthcare Companion & Digital Twin GPT\n\n"
+            f"I am your empathetic personal health companion, built to support you with wellness tracking, health literacy, symptom awareness, and medication reminders.\n\n"
             f"**Your Personalized Health Record at a Glance**:\n"
             f"• **Diagnosis & Location**: {diagnosis} ({location})\n"
             f"• **Active Prescriptions**: Keppra 500 mg BID & Temozolomide Adjuvant\n"
@@ -893,30 +913,190 @@ def generate_ai_response(
             f"• **Care Team**: {oncologist} & {nurse}\n\n"
             f"**How I can support you today**:\n"
             f"• *\"Explain my current condition\"*\n"
+            f"• *\"Explain the scenario to 10 yr old\"*\n"
             f"• *\"Explain my latest scan results\"*\n"
-            f"• *\"How does an MRI machine actually work?\"*\n"
-            f"• *\"Can I drink green tea or coffee?\"*\n"
+            f"• *\"How can I maintain a healthy diet?\"*\n"
             f"• *\"What should I do if I miss my Keppra dose?\"*\n"
-            f"• *\"Help me understand why I'm feeling fatigued\"*\n\n"
-            f"How can I support your health and well-being today, {first_name}?"
+            f"• *\"When should I see a doctor?\"*\n\n"
+            f"How can I support your health and well-being today?"
         )
 
     # =========================================================================
-    # 9. UNIVERSAL OPEN-DOMAIN GENERATIVE SYNTHESIZER (Answers ANY Query)
+    # 8.5. COMMON SYMPTOMS, LABS & CLINICAL HEALTH MODULES
     # =========================================================================
-    # Extract question words / core topic
+
+    # Fever & Infection / Neutropenic Precautions
+    if _matches(["fever", "temp", "temperature", "chills", "shivering", "infection", "cold", "flu", "cough", "sore throat", "runny nose"]):
+        return (
+            f"### 🌡️ Fever & Infection Precautions During Oncology Treatment\n\n"
+            f"During active adjuvant therapy with **Temozolomide**, monitoring for infection is essential:\n\n"
+            f"• **Why Fever is Critical**: Chemotherapy temporarily lowers your white blood cells (especially neutrophils), reducing your immune defense against common bacteria and viruses.\n"
+            f"• **Fever Threshold**: An oral temperature of **100.4°F (38.0°C) or higher** is considered a clinical priority in oncology.\n"
+            f"• **Action Plan**:\n"
+            f"  - **Check Temperature**: Use a digital oral thermometer.\n"
+            f"  - **Do NOT Mask Fever with Tylenol**: Avoid taking Acetaminophen until you have reported your temperature to **{nurse}** or your clinic.\n"
+            f"  - **When to Seek Immediate Care**: If you develop high fever with shaking chills, productive cough, or burning urination, proceed directly to the nearest hospital emergency room (Dial **112 / 108** in India).\n\n"
+            f"**Care Team Contacts**:\n"
+            f"• Oncology Navigator: **{nurse}**\n"
+            f"• Hospital Triage Hotline: `+91 (080) 4123-8900`"
+            + DISCLAIMER
+        )
+
+    # Nausea, Vomiting & Digestive Comfort
+    if _matches(["nausea", "vomit", "throwing up", "queasy", "acid reflux", "heartburn", "indigestion", "appetite loss", "not hungry"]):
+        return (
+            f"### 🤢 Managing Nausea & Digestive Comfort During Treatment\n\n"
+            f"Nausea is a recognized side effect of chemotherapy (Temozolomide) and brain inflammation, but it can be managed effectively:\n\n"
+            f"1. **Pre-Medication Timing**:\n"
+            f"• Always take your prescribed antiemetic—**Ondansetron (Zofran 8 mg)**—strictly **30 to 45 minutes before** swallowing your Temozolomide capsule.\n"
+            f"2. **Bedtime Dosing Strategy**:\n"
+            f"• Taking Temozolomide at bedtime on an empty stomach (at least 2 hours after your evening meal) allows you to sleep through peak drug absorption.\n"
+            f"3. **Dietary Soothers**:\n"
+            f"• Sip warm ginger tea or peppermint tea.\n"
+            f"• Eat small, frequent, room-temperature bland snacks (crackers, toast, bananas, rice) rather than heavy, hot, or oily meals.\n"
+            f"4. **Never Re-Dose if You Vomit**:\n"
+            f"• If you vomit after taking your Temozolomide pill, **do not take another pill**. Notify **{nurse}** in the morning to document the missed dose."
+            + DISCLAIMER
+        )
+
+    # Dizziness, Vertigo & Balance
+    if _matches(["dizzy", "dizziness", "vertigo", "lightheaded", "unsteady", "balance", "spinning", "faint", "room spinning"]):
+        return (
+            f"### 🌀 Understanding Dizziness & Balance Stability\n\n"
+            f"Dizziness or transient lightheadedness can stem from several manageable factors:\n\n"
+            f"• **Postural Shifts & Blood Pressure**: Moving from lying down to standing quickly can cause a brief drop in cerebral blood flow. Pause for 30 seconds on the edge of the bed before rising.\n"
+            f"• **Anti-Seizure Medication**: Levetiracetam (**Keppra**) can occasionally cause mild vestibular drowsiness or sensation of floating, especially during early cycles.\n"
+            f"• **Hydration**: Mild dehydration directly exacerbates lightheadedness. Aim for **2 to 2.5 liters of water daily**.\n\n"
+            f"**🚨 Urgent Red-Flag**: If dizziness comes on suddenly with facial drooping, weakness on one side of your body, slurred speech, or difficulty walking, call emergency services (**112 / 108** in India) immediately."
+            + DISCLAIMER
+        )
+
+    # Constipation & Bowel Health
+    if _matches(["constipat", "constipation", "bowel", "stool", "poop", "laxative", "bloat", "stomach cramp"]):
+        return (
+            f"### 🌿 Bowel Health & Relieving Constipation\n\n"
+            f"Constipation is very common during neuro-oncology treatment:\n\n"
+            f"• **Main Causes**: Antinausea medications (especially **Ondansetron / Zofran**) and post-surgical pain relievers significantly slow gastrointestinal motility.\n"
+            f"• **Hydration First**: Drink warm water or herbal tea first thing in the morning and maintain 2 to 2.5 liters of fluids daily.\n"
+            f"• **Natural Fiber**: Include stewed prunes, kiwi fruit, chia seeds, oatmeal, and ground flaxseed in your diet.\n"
+            f"• **Gentle Movement**: A 15–20 minute walk stimulates peristalsis.\n"
+            f"• **Stool Softeners**: Check with **{nurse}** about using gentle osmotic stool softeners (like Polyethylene Glycol / Miralax or Docusate) if constipation persists beyond 48 hours."
+            + DISCLAIMER
+        )
+
+    # Pain, Muscle Soreness & Head Pressure
+    if _matches(["pain", "sore", "ache", "body pain", "neck pain", "scalp soreness", "muscle pain"]):
+        return (
+            f"### 🩺 Managing Soreness & Body Pain Safely\n\n"
+            f"Post-craniotomy healing and adjuvant treatment can cause localized muscular and scalp soreness:\n\n"
+            f"• **Surgical Scalp Soreness**: Healing along your **{location}** incision and surrounding temporalis muscle causes normal mild tenderness for several months.\n"
+            f"• **Safe Pain Relief**: **Acetaminophen (Tylenol / Paracetamol 500–650 mg)** is the preferred medication because it does not affect blood clotting. Do not exceed 3,000 mg in 24 hours.\n"
+            f"• **Avoid Blood-Thinning NSAIDs**: Do **not** take Ibuprofen, Advil, Motrin, or Aspirin unless specifically cleared by your neurosurgeon, as they increase intracranial bleeding risks.\n"
+            f"• **Warm Compress for Neck Tension**: Gentle warm towels around your neck and shoulders ease tension headaches.\n\n"
+            f"🚨 *If head pain is sudden, explosive ('worst headache of life'), or accompanied by vomiting, seek emergency care (**112 / 108**) immediately.*"
+            + DISCLAIMER
+        )
+
+    # Vitamins, Minerals & Supplements
+    if _matches(["vitamin", "supplement", "turmeric", "curcumin", "omega 3", "fish oil", "melatonin", "zinc", "magnesium", "b6", "b12", "vitamin d"]):
+        return (
+            f"### 💊 Vitamins & Supplements in Neuro-Oncology\n\n"
+            f"Safe supplementation requires careful coordination with your oncology team:\n\n"
+            f"• **Vitamin B6 (Pyridoxine 50–100 mg daily)**: Highly recommended if you experience mild irritability or mood changes from **Keppra**.\n"
+            f"• **Vitamin D3 & Calcium**: Important to protect bone density, especially if taking corticosteroids (**Dexamethasone**).\n"
+            f"• **Caution with High-Dose Antioxidants**: Avoid mega-dose antioxidants (like Vitamin C > 1,000 mg, high-dose Vitamin E, or concentrated curcumin extracts) during active radiation therapy or chemotherapy cycles, as they may protect cancer cells from the oxidative mechanism of treatment.\n"
+            f"• **Always Confirm**: Share any over-the-counter herbal pills with **{oncologist}** before starting to avoid CYP3A4 liver enzyme interactions."
+            + DISCLAIMER
+        )
+
+    # Blood Tests, CBC, Platelets & Neutrophils
+    if _matches(["blood test", "cbc", "platelet", "neutrophil", "white blood", "anc", "labs", "lab result", "hemoglobin", "counts"]):
+        return (
+            f"### 🩸 Understanding Blood Counts (CBC) & Chemotherapy Safety\n\n"
+            f"Before starting each 28-day cycle of adjuvant **Temozolomide**, your care team checks your Complete Blood Count (CBC):\n\n"
+            f"• **Absolute Neutrophil Count (ANC)**: Neutrophils fight bacterial infections. Your ANC must be **≥ 1,500/µL** to safely start a chemotherapy cycle.\n"
+            f"• **Platelet Count**: Platelets stop bleeding. Your platelets must be **≥ 100,000/µL** before starting your next round.\n"
+            f"• **Why Counts Dip (Nadir)**: Blood counts typically reach their lowest point (the nadir) around Days 21–22 of each 28-day cycle, before rebounding naturally.\n"
+            f"• **Safety Note**: If counts are low, your oncologist may pause treatment for 1–2 weeks to let your bone marrow recover safely—this is standard clinical practice."
+            + DISCLAIMER
+        )
+
+    # Seizure Precautions & First Aid
+    if _matches(["seizure first aid", "what to do if seizure", "how to help seizure", "seizure safety", "witness a seizure"]):
+        return (
+            f"### 🛡️ Seizure Safety & First Aid Protocol\n\n"
+            f"If you or a caregiver need guidance during a seizure event:\n\n"
+            f"1. **Stay Calm & Cushion the Head**: Gently guide the person to the floor and place something soft under their head.\n"
+            f"2. **Turn on One Side (Recovery Position)**: This keeps the airway clear and allows fluids to drain.\n"
+            f"3. **NEVER Put Anything in the Mouth**: Do not try to hold the tongue or insert objects or medications.\n"
+            f"4. **Loosen Restrictive Clothing**: Undo tight collars, neckties, or glasses.\n"
+            f"5. **Time the Seizure**:\n"
+            f"   - If the seizure lasts **longer than 5 minutes**, or if a second seizure begins immediately, call emergency services (**112 / 108** in India) without delay.\n"
+            f"6. **Post-Seizure Care**: Allow restful recovery; mild confusion or sleepiness (the postictal state) is normal for 15–30 minutes."
+            + DISCLAIMER
+        )
+
+    # Brain Tumor Biology & IDH Mutation
+    if _matches(["idh", "mutation", "mgmt", "methylation", "molecular marker", "biology", "biomarker"]):
+        return (
+            f"### 🧬 Your Molecular Markers: IDH Mutation & Treatment Response\n\n"
+            f"Modern neuro-oncology classifies brain tumors by their molecular DNA markers:\n\n"
+            f"• **IDH Mutation (Isocitrate Dehydrogenase)**: Your diagnosis carries an **IDH mutation**, which is a **favorable prognostic biomarker**. IDH-mutant tumors produce a distinct metabolic landscape that makes tumor cells significantly more vulnerable to chemotherapy (Temozolomide) and radiation compared to IDH-wildtype tumors.\n"
+            f"• **MGMT Promoter Methylation**: When the MGMT gene promoter is methylated (silenced), the tumor cell cannot repair the DNA damage delivered by Temozolomide, leading to greater therapeutic efficacy.\n"
+            f"• **Clinical Significance**: These genetic markers guide your personalized care plan and support your favorable treatment trajectory."
+            + DISCLAIMER
+        )
+
+    # =========================================================================
+    # 9. UNIVERSAL OPEN-DOMAIN GENERATIVE HEALTH SYNTHESIZER
+    # =========================================================================
+    # Cleans query and extracts core health topic
     clean_query = re.sub(r"[?!.,]", "", user_message).strip()
     words = clean_query.split()
     topic = " ".join(words[-4:]) if len(words) >= 4 else clean_query
 
-    synth_response = (
-        f"Hello {first_name}! Regarding your question about {topic}:\n\n"
-        f"When thinking about daily wellness and healing with {diagnosis}, maintaining a calm, balanced routine is key. "
-        f"Prioritizing gentle physical pacing, drinking plenty of water, and getting a consistent 8 hours of sleep helps support your cognitive energy and brain recovery.\n\n"
-        f"Your daily prescribed treatments (including **Keppra** and **Temozolomide**) are actively working to protect your brain tissue and keep everything stable. "
-        f"If this involves any new routine changes, activities, or over-the-counter supplements, it's always best to check in with **{nurse}** or **{oncologist}**.\n\n"
-        f"Is there anything specific you would like me to explain further or help you navigate?"
-    )
+    # Determine query health category for rich specialized synthesis
+    is_symptom = any(k in msg_lower for k in ["feel", "hurt", "pain", "sick", "ache", "symptom", "numb", "tingl", "swollen", "vision", "ear", "sleep", "appetite", "rash"])
+    is_treatment = any(k in msg_lower for k in ["pill", "drug", "med", "dose", "chemo", "radiation", "surgery", "resection", "keppra", "temozolomide", "steroid", "therapy"])
+    is_lifestyle = any(k in msg_lower for k in ["diet", "food", "eat", "drink", "walk", "exercise", "yoga", "work", "travel", "water", "rest", "lifestyle"])
+    is_expl = any(k in msg_lower for k in ["why", "how", "what is", "explain", "understand", "mean", "tell me about"])
+
+    if is_symptom:
+        category_header = f"### 🩺 Symptom Guidance: Understanding {topic.title()}"
+        guidance_core = (
+            f"When monitoring new or changing physical sensations like **{topic}**, here is evidence-based clinical guidance:\n\n"
+            f"1. **Assessment Factors**: Note the onset time, duration, and whether it fluctuates or remains constant. Rating its severity from 1 to 10 helps your care team evaluate patterns.\n"
+            f"2. **Relation to Your Condition**: Because you are recovering from surgery in your **{location}** and taking **Keppra** and **Temozolomide**, minor nerve adjustments, fluid shifts, or treatment effects can occasionally produce temporary sensations.\n"
+            f"3. **Supportive Comfort Steps**: Rest in a calm environment, stay well-hydrated with 2+ liters of water daily, and avoid physical or visual strain.\n"
+            f"4. **When to Report**: If the sensation is persistent or worsening, report it to **{nurse}** or your attending neuro-oncologist, **{oncologist}**.\n\n"
+            f"🚨 *If this symptom is sudden, severe, accompanied by weakness, facial droop, or trouble speaking, seek emergency evaluation immediately (Dial **112 / 108** in India).*"
+        )
+    elif is_treatment:
+        category_header = f"### 💊 Treatment & Medication Guidance: {topic.title()}"
+        guidance_core = (
+            f"Regarding your question about **{topic}**, here is essential clinical information:\n\n"
+            f"1. **Your Active Regimen**: Your primary prescribed therapies are **Keppra (Levetiracetam 500 mg BID)** for brain electrical stability and **Temozolomide** adjuvant chemotherapy.\n"
+            f"2. **Core Guidelines**: Always take prescribed medications at consistent 12-hour intervals. Never alter, double, or skip doses independently without consulting your prescribing physician.\n"
+            f"3. **Coordination**: Before introducing any new over-the-counter medicine, pain reliever, or supplement, verify with your clinical navigator, **{nurse}**, to prevent drug interactions or liver strain."
+        )
+    elif is_lifestyle:
+        category_header = f"### 🌿 Daily Wellness & Lifestyle Guidance: {topic.title()}"
+        guidance_core = (
+            f"Supporting your daily wellness while recovering from **{diagnosis}** involves gentle, restorative habits:\n\n"
+            f"1. **Balanced Nutrition & Hydration**: Prioritize whole, anti-inflammatory foods (vegetables, berries, lean proteins, healthy fats) and drink 2 to 2.5 liters of clean water daily to help your kidneys flush medications.\n"
+            f"2. **Pacing & Rest**: Gentle physical activities like daily 20-minute walks and restorative stretching boost circulation and reduce fatigue. Avoid heavy straining or holding your breath.\n"
+            f"3. **Protecting Brain Recovery**: Deep slow-wave sleep (8 hours nightly) is when your brain repairs cellular connections. Keep a consistent bedtime routine in a quiet, dim room."
+        )
+    else:
+        category_header = f"### 🧠 Clinical Health Overview: {topic.title()}"
+        guidance_core = (
+            f"Here is a clear, evidence-based perspective regarding **{topic}**:\n\n"
+            f"1. **Current Health Context**: Your Digital Twin reflects reassuring stability following surgery in your **{location}**, with stable enhancing volumetrics ({et_v:.1f} cm³) and low perfusion rCBV ({rcbv:.2f}) confirming post-treatment tissue response.\n"
+            f"2. **Treatment Protection**: Daily adherence to **Keppra** protects your brain tissue against electrical excitability, while **Temozolomide** guards against cellular recurrence.\n"
+            f"3. **Next Steps**: Maintain consistent hydration, prioritize restful sleep, and discuss any specific questions or symptom observations with **{nurse}** or **{oncologist}** at your upcoming consultation."
+        )
+
+    synth_response = f"{category_header}\n\n{guidance_core}"
     if _matches(["pain", "hurt", "symptom", "sick", "ache", "head", "med", "pill", "drug", "treatment", "tumor", "cancer", "scan", "surgery", "dose"]):
         synth_response += DISCLAIMER
     return synth_response
